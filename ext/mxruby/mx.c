@@ -1,11 +1,19 @@
 #include <ruby.h>
-#include "mxruby.h"
+#include "mx.h"
 #include <cblas.h>
 
-void mx_free(MX *mx)
+VALUE rb_cMx;
+
+static void mx_free(MX *mx)
 {
-    MX_FREE(mx->shape);
-    MX_FREE(mx->elptr);
+    if (mx->shape != NULL) {
+        MX_FREE(mx->shape);
+    }
+    if (mx->elptr != NULL) {
+        MX_FREE(mx->elptr);
+    }
+
+    MX_FREE(mx);
 }
 
 static VALUE mx_alloc(VALUE klass)
@@ -50,7 +58,7 @@ void mx_type_c_to_rb(void *p, DTYPE dtype, VALUE *v)
     }
 }
 
-static VALUE mx_initialize(VALUE self, VALUE shape, VALUE initial_array, VALUE opt)
+static VALUE mx_initialize(VALUE self, VALUE shape, VALUE initial_value, VALUE opt)
 {
     MX *mx;
     Data_Get_Struct(self, MX, mx);
@@ -67,6 +75,8 @@ static VALUE mx_initialize(VALUE self, VALUE shape, VALUE initial_array, VALUE o
         }
     }
 
+    size_t dsize = DTYPE_SIZES[mx->dtype];
+
     mx->dim = RARRAY_LEN(shape);
     mx->size = 1;
     mx->shape = MX_ALLOC_N(size_t, mx->dim);
@@ -75,12 +85,17 @@ static VALUE mx_initialize(VALUE self, VALUE shape, VALUE initial_array, VALUE o
         mx->shape[i] = FIX2INT(RARRAY_AREF(shape, i));
         mx->size *= mx->shape[i];
     }
-
-    size_t dsize = DTYPE_SIZES[mx->dtype];
     mx->elptr = MX_ALLOC_N(char, dsize * mx->size);
-    for (int i = 0; i < RARRAY_LEN(initial_array); i++) {
-        VALUE v = RARRAY_AREF(initial_array, i);
-        mx_type_rb_to_c(mx->elptr + i * dsize, mx->dtype, &v);
+
+    if (TYPE(initial_value) == T_ARRAY) {
+        for (int i = 0; i < mx->size; i++) {
+            VALUE v = RARRAY_AREF(initial_value, i);
+            mx_type_rb_to_c(mx->elptr + i * dsize, mx->dtype, &v);
+        }
+    } else if (!NIL_P(initial_value)) {
+        for (int i = 0; i < mx->size; i++) {
+            mx_type_rb_to_c(mx->elptr + i * dsize, mx->dtype, &initial_value);
+        }
     }
 
     return self;
@@ -133,15 +148,24 @@ static VALUE mx_set(int argc, VALUE *argv, VALUE self)
 
 static VALUE mx_get(int argc, VALUE *argv, VALUE self)
 {
-    VALUE row, col;
-    rb_scan_args(argc, argv, "2", &row, &col);
+    VALUE idx;
+    rb_scan_args(argc, argv, "0*", &idx);
+    MX *mx = MX_DATA_PTR(self);
 
-    int row_index = FIX2INT(row);
-    int col_index = FIX2INT(col);
+    size_t idx_len = RARRAY_LEN(idx);
+    size_t pos = 0;
+    for (int i = 0; i < idx_len; i++) {
+        size_t skip = 1;
+        for (int j = i + 1; j < idx_len; j++) {
+            skip *= mx->shape[j];
+        }
 
-    MX *mx = (MX *)DATA_PTR(self);
-    void *ref = mx->elptr + (row_index * 2 + col_index) * DTYPE_SIZES[4];
-    return rb_float_new(*(float *)ref);
+        pos += FIX2INT(RARRAY_AREF(idx, i)) * skip;
+    }
+
+    VALUE v;
+    mx_type_c_to_rb(mx->elptr + pos * DTYPE_SIZES[mx->dtype], mx->dtype, &v);
+    return v;
 }
 
 void _mx_to_a(VALUE *ary, size_t shape_index, size_t array_index, MX *mx)
@@ -186,11 +210,12 @@ static VALUE mx_flatten(VALUE self)
 
 void Init_mxruby()
 {
-    VALUE rb_cMx = rb_define_class("MX", rb_cObject);
+    rb_cMx = rb_define_class("MX", rb_cObject);
 
     rb_define_alloc_func(rb_cMx, mx_alloc);
 
     rb_define_protected_method(rb_cMx, "__set__", mx_initialize, 3);
+
     rb_define_method(rb_cMx, "shape", mx_shape, 0);
     rb_define_method(rb_cMx, "dim", mx_dim, 0);
     rb_define_method(rb_cMx, "size", mx_size, 0);
@@ -199,4 +224,6 @@ void Init_mxruby()
     rb_define_method(rb_cMx, "[]", mx_get, -1);
     rb_define_method(rb_cMx, "to_a", mx_to_a, 0);
     rb_define_method(rb_cMx, "flatten", mx_flatten, 0);
+
+    Init_random();
 }

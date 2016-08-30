@@ -1,3 +1,6 @@
+#ifndef _MX_MX_H_
+#define _MX_MX_H_
+
 #define MX_ALLOC(type) (ALLOC(type))
 #define MX_ALLOC_N(type,n) (ALLOC_N(type,n))
 #define MX_FREE(var) (xfree(var))
@@ -21,7 +24,7 @@ typedef struct _MX {
 #define DTYPE_FLOAT32 4
 #define DTYPE_FLOAT64 5
 
-const char * DTYPE_NAMES[NUM_DTYPE] = {
+static const char * DTYPE_NAMES[NUM_DTYPE] = {
     "int8",
     "int16",
     "int32",
@@ -30,7 +33,7 @@ const char * DTYPE_NAMES[NUM_DTYPE] = {
     "float64"
 };
 
-const size_t DTYPE_SIZES[NUM_DTYPE] = {
+static const size_t DTYPE_SIZES[NUM_DTYPE] = {
     sizeof(int8_t),
     sizeof(int16_t),
     sizeof(int32_t),
@@ -43,3 +46,8 @@ const size_t DTYPE_SIZES[NUM_DTYPE] = {
 #define MX_DATA_ELPTR(mx) (MX_DATA_PTR(mx)->elptr)
 #define MX_DATA_DIM(mx) (MX_DATA_PTR(mx)->dim)
 #define MX_DATA_SIZE(mx) (MX_DATA_PTR(mx)->size)
+
+extern VALUE rb_cMx;
+extern void Init_random();
+
+#endif // _MX_MX_H_

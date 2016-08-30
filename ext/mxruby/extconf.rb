@@ -9,4 +9,4 @@ dir_config('cblas', '/usr/local/opt/openblas/include', '/usr/local/opt/openblas/
 
 have_header('cblas.h')
 
-create_makefile('mxruby/mxruby')
+create_makefile('mxruby')

@@ -1,3 +1,3 @@
-require './mxruby.bundle'
+require 'mxruby'
 
-a=[];5000.times{|ai| a[ai]=[]; 5000.times{|bi| a[ai][bi]=ai*bi}};MX.new(a)
+MX.rand([5, 5])
