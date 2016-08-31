@@ -36,7 +36,4 @@ class MX
       return MX.new(shape: shape, initial_value: fill_value)
     end
   end
-
-  def inspect
-  end
 end

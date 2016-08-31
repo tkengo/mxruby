@@ -59,10 +59,13 @@ static VALUE mx_random_randn(VALUE self)
         v = r->value;
         r->has_value = false;
     } else {
-        double x1 = _xorshift_star_1024(r);
-        double x2 = _xorshift_star_1024(r);
+        double x1, x2, s;
+        do {
+            x1 = 2.0 * _xorshift_star_1024(r) - 1.0;
+            x2 = 2.0 * _xorshift_star_1024(r) - 1.0;
+            s = (x1 * x1) + (x2 * x2);
+        } while (s == 0 || s >= 1);
 
-        double s = (x1 * x1) + (x2 * x2);
         double p = sqrt(-2 * log(s) / s);
         double z1 = x1 * p;
         double z2 = x2 * p;

@@ -2,13 +2,22 @@ class MX
   class Random
     class << self
       def rand(shape)
-        shape = [ shape ] unless shape.is_a?(Array)
+        gen(shape){|r| r.rand }
+      end
 
-        r = ::Random.new
+      def randn(shape)
+        gen(shape){|r| r.randn }
+      end
+
+      private
+
+      def gen(shape, &method)
+        shape = [ shape ] unless shape.is_a?(Array)
+        r = Random.new
 
         initial_array = []
         shape.inject(1){|sum, v| sum *= v }.times do
-          initial_array << r.rand
+          initial_array << yield(r)
         end
 
         return MX.new(shape: shape, initial_value: initial_array)
