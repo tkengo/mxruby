@@ -3,16 +3,48 @@
 #include "mx.h"
 #include "random.h"
 
-static void mx_random_free(MXRANDOM *r)
+void mxx_random_free(MXRANDOM *r)
 {
     MX_FREE(r);
+}
+
+double mxx_random_xorshift1024(MXRANDOM *r)
+{
+    const uint64_t s0 = r->s[r->p];
+    uint64_t s1 = r->s[r->p = (r->p + 1) & 15];
+    s1 ^= s1 << 31;
+    r->s[r->p] = s1 ^ s0 ^ (s1 >> 11) ^ (s0 >> 30);
+    return r->s[r->p] * UINT64_C(1181783497276652981) * MIN_DOUBLE;
+}
+
+double mxx_random_gaussian(MXRANDOM *r)
+{
+    if (r->has_value) {
+        r->has_value = false;
+        return r->value;
+    } else {
+        double x1, x2, s;
+        do {
+            x1 = 2.0 * mxx_random_xorshift1024(r) - 1.0;
+            x2 = 2.0 * mxx_random_xorshift1024(r) - 1.0;
+            s = (x1 * x1) + (x2 * x2);
+        } while (s == 0 || s >= 1);
+
+        double p = sqrt(-2 * log(s) / s);
+        double z1 = x1 * p;
+        double z2 = x2 * p;
+
+        r->has_value = true;
+        r->value = z2;
+        return z1;
+    }
 }
 
 static VALUE mx_random_alloc(VALUE klass)
 {
     MXRANDOM *r = MX_ALLOC(MXRANDOM);
 
-    return Data_Wrap_Struct(klass, 0, mx_random_free, r);
+    return Data_Wrap_Struct(klass, 0, mxx_random_free, r);
 }
 
 static VALUE mx_random_initialize(int argc, VALUE *argv, VALUE self)
@@ -33,49 +65,41 @@ static VALUE mx_random_initialize(int argc, VALUE *argv, VALUE self)
     return self;
 }
 
-static double _xorshift_star_1024(MXRANDOM *r)
-{
-    const uint64_t s0 = r->s[r->p];
-    uint64_t s1 = r->s[r->p = (r->p + 1) & 15];
-    s1 ^= s1 << 31;
-    r->s[r->p] = s1 ^ s0 ^ (s1 >> 11) ^ (s0 >> 30);
-    return r->s[r->p] * UINT64_C(1181783497276652981) * MIN_DOUBLE;
-}
-
-static VALUE mx_random_rand(VALUE self) {
+static VALUE mx_random_rand(int argc, VALUE *argv, VALUE self) {
+    VALUE shape;
     MXRANDOM *r;
     Data_Get_Struct(self, MXRANDOM, r);
+    rb_scan_args(argc, argv, "01", &shape);
 
-    return rb_float_new(_xorshift_star_1024(r));
-}
-
-static VALUE mx_random_randn(VALUE self)
-{
-    MXRANDOM *r;
-    Data_Get_Struct(self, MXRANDOM, r);
-
-    double v;
-    if (r->has_value) {
-        v = r->value;
-        r->has_value = false;
-    } else {
-        double x1, x2, s;
-        do {
-            x1 = 2.0 * _xorshift_star_1024(r) - 1.0;
-            x2 = 2.0 * _xorshift_star_1024(r) - 1.0;
-            s = (x1 * x1) + (x2 * x2);
-        } while (s == 0 || s >= 1);
-
-        double p = sqrt(-2 * log(s) / s);
-        double z1 = x1 * p;
-        double z2 = x2 * p;
-
-        v = z1;
-        r->has_value = true;
-        r->value = z2;
+    if (NIL_P(shape)) {
+        return rb_float_new(mxx_random_xorshift1024(r));
     }
 
-    return rb_float_new(v);
+    MX *mx = mxx_initialize(shape);
+    for (int i = 0; i < mx->size; i++) {
+        *(double *)(mx->elptr + i * DTYPE_SIZES[mx->dtype]) = mxx_random_xorshift1024(r);
+    }
+
+    return Data_Wrap_Struct(rb_cMx, 0, mxx_free, mx);
+}
+
+static VALUE mx_random_randn(int argc, VALUE *argv, VALUE self)
+{
+    VALUE shape;
+    MXRANDOM *r;
+    Data_Get_Struct(self, MXRANDOM, r);
+    rb_scan_args(argc, argv, "01", &shape);
+
+    if (NIL_P(shape)) {
+        return rb_float_new(mxx_random_gaussian(r));
+    }
+
+    MX *mx = mxx_initialize(shape);
+    for (int i = 0; i < mx->size; i++) {
+        *(double *)(mx->elptr + i * DTYPE_SIZES[mx->dtype]) = mxx_random_gaussian(r);
+    }
+
+    return Data_Wrap_Struct(rb_cMx, 0, mxx_free, mx);
 }
 
 void Init_random()
@@ -85,6 +109,6 @@ void Init_random()
     rb_define_alloc_func(rb_cRandom, mx_random_alloc);
 
     rb_define_method(rb_cRandom, "initialize", mx_random_initialize, -1);
-    rb_define_method(rb_cRandom, "rand", mx_random_rand, 0);
-    rb_define_method(rb_cRandom, "randn", mx_random_randn, 0);
+    rb_define_method(rb_cRandom, "rand", mx_random_rand, -1);
+    rb_define_method(rb_cRandom, "randn", mx_random_randn, -1);
 }

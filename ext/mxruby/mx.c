@@ -4,7 +4,39 @@
 
 VALUE rb_cMx;
 
-static void mx_free(MX *mx)
+MX *mxx_initialize(VALUE shape)
+{
+    MX *mx = MX_ALLOC(MX);
+    mxx_setup(mx);
+    mxx_initialize_shape(mx, shape);
+    return mx;
+}
+
+void mxx_setup(MX *mx)
+{
+    mx->dim = 0;
+    mx->size = 0;
+    mx->dtype = DTYPE_FLOAT64;
+    mx->shape = NULL;
+    mx->elptr = NULL;
+}
+
+void mxx_initialize_shape(MX *mx, VALUE shape)
+{
+    char shape_is_array = TYPE(shape) == T_ARRAY;
+
+    mx->size = 1;
+    mx->dim = shape_is_array ? RARRAY_LEN(shape) : 1;
+    mx->shape = MX_ALLOC_N(size_t, mx->dim);
+
+    for (int i = 0; i < mx->dim; i++) {
+        mx->shape[i] = FIX2INT(shape_is_array ? RARRAY_AREF(shape, i) : shape);
+        mx->size *= mx->shape[i];
+    }
+    mx->elptr = MX_ALLOC_N(char, DTYPE_SIZES[mx->dtype] * mx->size);
+}
+
+void mxx_free(MX *mx)
 {
     if (mx->shape != NULL) {
         MX_FREE(mx->shape);
@@ -18,14 +50,10 @@ static void mx_free(MX *mx)
 
 static VALUE mx_alloc(VALUE klass)
 {
-    MX *mx = ALLOC(MX);
-    mx->dim = 0;
-    mx->size = 0;
-    mx->dtype = DTYPE_FLOAT64;
-    mx->shape = NULL;
-    mx->elptr = NULL;
+    MX *mx = MX_ALLOC(MX);
+    mxx_setup(mx);
 
-    return Data_Wrap_Struct(klass, 0, mx_free, mx);
+    return Data_Wrap_Struct(klass, 0, mxx_free, mx);
 }
 
 void mx_type_rb_to_c(void *p, DTYPE dtype, VALUE *v)
@@ -75,26 +103,16 @@ static VALUE mx_initialize(VALUE self, VALUE shape, VALUE initial_value, VALUE o
         }
     }
 
-    size_t dsize = DTYPE_SIZES[mx->dtype];
-
-    mx->dim = RARRAY_LEN(shape);
-    mx->size = 1;
-    mx->shape = MX_ALLOC_N(size_t, mx->dim);
-
-    for (int i = 0; i < mx->dim; i++) {
-        mx->shape[i] = FIX2INT(RARRAY_AREF(shape, i));
-        mx->size *= mx->shape[i];
-    }
-    mx->elptr = MX_ALLOC_N(char, dsize * mx->size);
+    mxx_initialize_shape(mx, shape);
 
     if (TYPE(initial_value) == T_ARRAY) {
         for (int i = 0; i < mx->size; i++) {
             VALUE v = RARRAY_AREF(initial_value, i);
-            mx_type_rb_to_c(mx->elptr + i * dsize, mx->dtype, &v);
+            mx_type_rb_to_c(mx->elptr + i * DTYPE_SIZES[mx->dtype], mx->dtype, &v);
         }
     } else if (!NIL_P(initial_value)) {
         for (int i = 0; i < mx->size; i++) {
-            mx_type_rb_to_c(mx->elptr + i * dsize, mx->dtype, &initial_value);
+            mx_type_rb_to_c(mx->elptr + i * DTYPE_SIZES[mx->dtype], mx->dtype, &initial_value);
         }
     }
 
@@ -168,7 +186,7 @@ static VALUE mx_get(int argc, VALUE *argv, VALUE self)
     return v;
 }
 
-void _mx_to_a(VALUE *ary, size_t shape_index, size_t array_index, MX *mx)
+static void mxs_to_a(VALUE *ary, size_t shape_index, size_t array_index, MX *mx)
 {
     if (shape_index == mx->dim - 1) {
         for (int i = 0; i < mx->shape[shape_index]; i++) {
@@ -183,7 +201,7 @@ void _mx_to_a(VALUE *ary, size_t shape_index, size_t array_index, MX *mx)
 
         for (int i = 0; i < mx->shape[shape_index]; i++) {
             VALUE *v = MX_ALLOC_N(VALUE, mx->shape[shape_index + 1]);
-            _mx_to_a(v, shape_index + 1, skip * i + array_index, mx);
+            mxs_to_a(v, shape_index + 1, skip * i + array_index, mx);
             ary[i] = rb_ary_new4(mx->shape[shape_index + 1], v);
         }
     }
@@ -193,7 +211,7 @@ static VALUE mx_to_a(VALUE self)
 {
     MX *mx = MX_DATA_PTR(self);
     VALUE *ary = MX_ALLOC_N(VALUE, mx->shape[0]);
-    _mx_to_a(ary, 0, 0, mx);
+    mxs_to_a(ary, 0, 0, mx);
     return rb_ary_new4(mx->shape[0], ary);
 }
 
@@ -202,10 +220,13 @@ static VALUE mx_flatten(VALUE self)
     MX *mx = MX_DATA_PTR(self);
     VALUE *el = MX_ALLOC_N(VALUE, mx->size);
     for (int i = 0; i < mx->size; i++) {
-        void *ref = mx->elptr + i * DTYPE_SIZES[4];
-        el[i] = rb_float_new(*(float *)ref);
+        mx_type_c_to_rb(mx->elptr + i * DTYPE_SIZES[mx->dtype], mx->dtype, &el[i]);
     }
     return rb_ary_new4(mx->size, el);
+}
+
+static VALUE mx_sing_linspace(int argc, VALUE *argv, VALUE self)
+{
 }
 
 void Init_mxruby()
@@ -224,6 +245,8 @@ void Init_mxruby()
     rb_define_method(rb_cMx, "[]", mx_get, -1);
     rb_define_method(rb_cMx, "to_a", mx_to_a, 0);
     rb_define_method(rb_cMx, "flatten", mx_flatten, 0);
+
+    rb_define_singlton_method(rb_cMx, "linspace", mx_sing_linspace, -1);
 
     Init_random();
 }

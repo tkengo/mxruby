@@ -1,29 +1,21 @@
-# Mxruby
+# MxRuby
 
-TODO: Write a gem description
+Matrix or vector operations for ruby.
 
 ## Installation
 
-Add this line to your application's Gemfile:
-
-    gem 'mxruby'
-
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install mxruby
+Unavailable.
 
 ## Usage
 
-TODO: Write usage instructions here
+```ruby
+MX.new
+```
 
-## Contributing
+## Rules
 
-1. Fork it ( http://github.com/<my-github-username>/mxruby/fork )
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
+### function name
+
+- `mx_***` is a function that is defined by ruby method.
+- `mxx_***` is used from only C.
+- `mxs_***` is also used from only C, but it is `static` function.

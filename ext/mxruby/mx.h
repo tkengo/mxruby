@@ -50,4 +50,9 @@ static const size_t DTYPE_SIZES[NUM_DTYPE] = {
 extern VALUE rb_cMx;
 extern void Init_random();
 
+extern void mxx_free(MX *mx);
+extern MX *mxx_initialize(VALUE shape);
+extern void mxx_setup(MX *mx);
+extern void mxx_initialize_shape(MX *mx, VALUE shape);
+
 #endif // _MX_MX_H_
