@@ -1,7 +1,6 @@
 #include <ruby.h>
 #include <time.h>
 #include "mx.h"
-#include "random.h"
 
 void mxx_random_free(MXRANDOM *r)
 {
@@ -14,7 +13,7 @@ double mxx_random_xorshift1024(MXRANDOM *r)
     uint64_t s1 = r->s[r->p = (r->p + 1) & 15];
     s1 ^= s1 << 31;
     r->s[r->p] = s1 ^ s0 ^ (s1 >> 11) ^ (s0 >> 30);
-    return r->s[r->p] * UINT64_C(1181783497276652981) * MIN_DOUBLE;
+    return r->s[r->p] * UINT64_C(1181783497276652981) * UINT64_MIN;
 }
 
 double mxx_random_gaussian(MXRANDOM *r)
@@ -58,7 +57,7 @@ static VALUE mx_random_initialize(int argc, VALUE *argv, VALUE self)
 
     r->has_value = false;
     r->p = 0;
-    for (int i = 0; i < NUM_STATE; i++) {
+    for (int i = 0; i < MX_RAND_NUM_STATE; i++) {
         r->s[i] = rand();
     }
 
@@ -75,7 +74,7 @@ static VALUE mx_random_rand(int argc, VALUE *argv, VALUE self) {
         return rb_float_new(mxx_random_xorshift1024(r));
     }
 
-    MX *mx = mxx_initialize(shape);
+    MX *mx = MX_INIT_D(shape, DTYPE_FLOAT64);
     for (int i = 0; i < mx->size; i++) {
         *(double *)(mx->elptr + i * DTYPE_SIZES[mx->dtype]) = mxx_random_xorshift1024(r);
     }
@@ -94,7 +93,7 @@ static VALUE mx_random_randn(int argc, VALUE *argv, VALUE self)
         return rb_float_new(mxx_random_gaussian(r));
     }
 
-    MX *mx = mxx_initialize(shape);
+    MX *mx = MX_INIT_D(shape, DTYPE_FLOAT64);
     for (int i = 0; i < mx->size; i++) {
         *(double *)(mx->elptr + i * DTYPE_SIZES[mx->dtype]) = mxx_random_gaussian(r);
     }
