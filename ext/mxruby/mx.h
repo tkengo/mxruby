@@ -74,19 +74,10 @@ static const size_t DTYPE_SIZES[NUM_DTYPE] = {
     sizeof(double)   // as float64
 };
 
-// #define DEFINE_CAST_METHOD(dest_type, src_type, dest_name, src_name) \
-//     void mxx_cast_##dest_name##_from_##src_name(void *dest, void *src, size_t n) \
-//     { \
-//         size_t dest_size = sizeof(dest_type); \
-//         size_t src_size  = sizeof(src_type); \
-//         for (size_t i = 0; i < n; i++) { \
-//             *(dest_type *)((char *)dest + i * dest_size) = (dest_type)*((char *)src_type *)(src + i * src_size); \
-//         } \
-//     }
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
 extern VALUE rb_cMx;
 extern VALUE rb_eDataTypeError;
 extern void Init_random();
@@ -103,9 +94,15 @@ extern DTYPE mxx_dtype_from_symbol(VALUE dtype);
 /**
  * Defined in util.c
  */
+extern MX *mxx_copy_shape(MX *src);
+extern MX *mxx_cast_copy(MX *src, DTYPE dtype);
 
-extern void mxx_copy_shape(MX *dest, MX *src);
-extern MX *mxx_ewmul(MX *l, MX *r);
+/**
+ * Defined in ewop.cpp
+ */
+extern MX *mxx_ewmul_array(MX *l, MX *r);
+extern void mxx_ewmul_scalar(MX *l, double r);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

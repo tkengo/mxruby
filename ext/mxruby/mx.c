@@ -8,7 +8,6 @@
  * This file is implementation of extended array functions for ruby. The MX class is defined on ruby
  * interpreter by compiling it.
  */
-
 #include <ruby.h>
 #include <cblas.h>
 #include "mx.h"
@@ -191,18 +190,13 @@ static VALUE mx_dot(VALUE self, VALUE target)
 
 static VALUE mx_astype(int argc, VALUE *argv, VALUE self)
 {
-    /* VALUE rb_new_dtype, rb_opt; */
-    /* rb_scan_args(argc, argv, "1:", &rb_new_dtype, &rb_opt); */
-    /*  */
-    /* MX *src = MX_DATA_PTR(self); */
-    /* MX *dest = MX_INIT_D(src->shape, new_dtype); */
-    /* DTYPE new_dtype = mxx_dtype_from_symbol(rb_new_dtype); */
-    /*  */
-    /* if (src->dtype == new_dtype) { */
-    /*     memcpy(dest->elptr, src->elptr, dest->size * DTYPE_SIZES[new_dtype]); */
-    /* } else { */
-    /* } */
-    return self;
+    VALUE rb_new_dtype, rb_opt;
+    rb_scan_args(argc, argv, "1:", &rb_new_dtype, &rb_opt);
+
+    DTYPE new_dtype = mxx_dtype_from_symbol(rb_new_dtype);
+    MX *dest = mxx_cast_copy(MX_DATA_PTR(self), new_dtype);
+
+    return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, dest);
 }
 
 static void mxs_to_a(VALUE *ary, size_t shape_index, size_t array_index, MX *mx)
@@ -284,9 +278,14 @@ static VALUE mx_ewmul(VALUE self, VALUE other)
                 rb_raise(rb_eDataTypeError, "Cannot do multiply operation between shape of [ %ld ] and [ %ld ]", mx->size, other_mx->size);
             }
 
-            MX *new_mx = mxx_ewmul(mx, other_mx);
+            MX *new_mx = mxx_ewmul_array(mx, other_mx);
             return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
         } else {
+            DTYPE new_dtype = TYPE(other) == T_FLOAT ? DTYPE_FLOAT64 : mx->dtype;
+            double v = NUM2DBL(other);
+            MX *new_mx = mxx_cast_copy(mx, new_dtype);
+            mxx_ewmul_scalar(new_mx, v);
+            return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
         }
         /* if (type == T_FIXNUM || type == T_FLOAT) { */
         /*     if (mx->dtype == DTYPE_FLOAT64) { */
