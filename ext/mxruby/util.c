@@ -22,3 +22,18 @@ DTYPE mxx_dtype_from_symbol(VALUE dtype)
 
     return ret;
 }
+
+bool mxx_is_same_shape(MX *m1, MX *m2)
+{
+    if (m1->dim != m2->dim) {
+        return false;
+    }
+
+    for (size_t d = 0; d < m1->dim; d++) {
+        if (m1->shape[d] != m2->shape[d]) {
+            return false;
+        }
+    }
+
+    return true;
+}

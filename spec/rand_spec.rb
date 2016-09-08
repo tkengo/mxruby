@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe MX::Rand do
+describe MX::Random do
   describe 'rand' do
     let(:rows) { 2 }
     let(:cols) { 3 }

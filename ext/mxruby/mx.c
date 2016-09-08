@@ -269,63 +269,22 @@ static VALUE mx_get(int argc, VALUE *argv, VALUE self)
 static VALUE mx_ewmul(VALUE self, VALUE other)
 {
     MX *mx = MX_DATA_PTR(self);
+    MX *new_mx;
 
-    int type = TYPE(other);
-    if (mx->dim == 1) {
-        if (IS_MX(other)) {
-            MX *other_mx = MX_DATA_PTR(other);
-            if (mx->size != other_mx->size) {
-                rb_raise(rb_eDataTypeError, "Cannot do multiply operation between shape of [ %ld ] and [ %ld ]", mx->size, other_mx->size);
-            }
-
-            MX *new_mx = mxx_ewmul_array(mx, other_mx);
-            return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
-        } else {
-            DTYPE new_dtype = TYPE(other) == T_FLOAT ? DTYPE_FLOAT64 : mx->dtype;
-            double v = NUM2DBL(other);
-            MX *new_mx = mxx_cast_copy(mx, new_dtype);
-            mxx_ewmul_scalar(new_mx, v);
-            return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
+    if (IS_MX(other)) {
+        MX *other_mx = MX_DATA_PTR(other);
+        if (!mxx_is_same_shape(mx, other_mx)) {
+            rb_raise(rb_eDataTypeError, "Cannot do multiply operation between shape of [ %ld ] and [ %ld ]", mx->size, other_mx->size);
         }
-        /* if (type == T_FIXNUM || type == T_FLOAT) { */
-        /*     if (mx->dtype == DTYPE_FLOAT64) { */
-        /*         cblas_dscal(mx->size, NUM2DBL(other), mx->elptr, 1); */
-        /*     } else if (mx->dtype == DTYPE_FLOAT32) { */
-        /*         cblas_sscal(mx->size, NUM2DBL(other), mx->elptr, 1); */
-        /*     } else { */
-        /*         if (type == T_FIXNUM) { */
-        /*             int v = FIX2INT(other); */
-        /*             size_t dsize = DTYPE_SIZES[mx->dtype]; */
-        /*             for (int i = 0; i < mx->size; i++) { */
-        /*                 switch (mx->dtype) { */
-        /*                     case DTYPE_INT8: */
-        /*                         *(int8_t *)(mx->elptr + i * dsize) *= v; */
-        /*                         break; */
-        /*                     case DTYPE_INT16: */
-        /*                         *(int16_t *)(mx->elptr + i * dsize) *= v; */
-        /*                         break; */
-        /*                     case DTYPE_INT32: */
-        /*                         *(int32_t *)(mx->elptr + i * dsize) *= v; */
-        /*                         break; */
-        /*                     case DTYPE_INT64: */
-        /*                         *(int64_t *)(mx->elptr + i * dsize) *= v; */
-        /*                         break; */
-        /*                 } */
-        /*             } */
-        /*         } else if (type == T_FLOAT) { */
-        /*             mxx_cast(mx, DTYPE_FLOAT64); */
-        /*             cblas_dscal(mx->size, NUM2DBL(other), mx->elptr, 1); */
-        /*         } */
-        /*     } */
-        /* } else if (IS_MX(other)) { */
-        /*     MX *other_mx = MX_DATA_PTR(other); */
-        /*     if (mx->size != other_mx->size) { */
-        /*         rb_raise(rb_eDataTypeError, "Cannot do multiply operation between shape of [ %ld ] and [ %ld ]", mx->size, other_mx->size); */
-        /*     } */
-        /* } */
+        new_mx = mxx_ewmul_array(mx, other_mx);
+    } else {
+        DTYPE new_dtype = TYPE(other) == T_FLOAT ? DTYPE_FLOAT64 : mx->dtype;
+        double v = NUM2DBL(other);
+        new_mx = mxx_cast_copy(mx, new_dtype);
+        mxx_ewmul_scalar(new_mx, v);
     }
 
-    return self;
+    return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
 }
 
 static VALUE mx_sing_arange(int argc, VALUE *argv, VALUE klass)

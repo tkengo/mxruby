@@ -28,6 +28,10 @@ class MX
       return MX.fill(shape, 0)
     end
 
+    def ones(shape)
+      return MX.fill(shape, 1)
+    end
+
     def empty(shape)
       return MX.new(shape: shape)
     end

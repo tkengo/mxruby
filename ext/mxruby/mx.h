@@ -39,7 +39,7 @@
 #define MX_INIT_D(shape, dtype) mxx_initialize(shape, dtype)
 #define IS_MX(v) (CLASS_OF(v) == rb_cMx)
 
-typedef char DTYPE;
+typedef short DTYPE;
 
 typedef struct _MX {
     size_t dim;
@@ -96,6 +96,7 @@ extern DTYPE mxx_dtype_from_symbol(VALUE dtype);
  */
 extern MX *mxx_copy_shape(MX *src);
 extern MX *mxx_cast_copy(MX *src, DTYPE dtype);
+extern bool mxx_is_same_shape(MX *m1, MX *m2);
 
 /**
  * Defined in ewop.cpp

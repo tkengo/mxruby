@@ -35,9 +35,6 @@ void mxt_ewmul_scalar(L *l, double r, size_t n)
 template <typename D, typename S>
 void mxt_cast(D *d, S* s, size_t n)
 {
-    size_t dsize = sizeof(D);
-    size_t ssize = sizeof(S);
-
     for (size_t i = 0; i < n; i++) {
         *(((D *)d) + i) = (D)(*(((S *)s) + i));
     }
