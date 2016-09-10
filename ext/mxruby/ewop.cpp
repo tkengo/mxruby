@@ -2,6 +2,79 @@
 #include "mx.h"
 #include "ewop.h"
 
+MX *mxx_ewadd_array(MX *l, MX *r)
+{
+    void *new_ptr;
+    switch (l->dtype) {
+        case DTYPE_INT8:
+            switch (r->dtype) {
+                case DTYPE_INT8:    new_ptr = mxt_ewadd_array((int8_t *)l->elptr, (int8_t  *)r->elptr, l->size); break;
+                case DTYPE_INT16:   new_ptr = mxt_ewadd_array((int8_t *)l->elptr, (int16_t *)r->elptr, l->size); break;
+                case DTYPE_INT32:   new_ptr = mxt_ewadd_array((int8_t *)l->elptr, (int32_t *)r->elptr, l->size); break;
+                case DTYPE_INT64:   new_ptr = mxt_ewadd_array((int8_t *)l->elptr, (int64_t *)r->elptr, l->size); break;
+                case DTYPE_FLOAT32: new_ptr = mxt_ewadd_array((int8_t *)l->elptr, (float   *)r->elptr, l->size); break;
+                case DTYPE_FLOAT64: new_ptr = mxt_ewadd_array((int8_t *)l->elptr, (double  *)r->elptr, l->size); break;
+            }
+            break;
+        case DTYPE_INT16:
+            switch (r->dtype) {
+                case DTYPE_INT8:    new_ptr = mxt_ewadd_array((int16_t *)l->elptr, (int8_t  *)r->elptr, l->size); break;
+                case DTYPE_INT16:   new_ptr = mxt_ewadd_array((int16_t *)l->elptr, (int16_t *)r->elptr, l->size); break;
+                case DTYPE_INT32:   new_ptr = mxt_ewadd_array((int16_t *)l->elptr, (int32_t *)r->elptr, l->size); break;
+                case DTYPE_INT64:   new_ptr = mxt_ewadd_array((int16_t *)l->elptr, (int64_t *)r->elptr, l->size); break;
+                case DTYPE_FLOAT32: new_ptr = mxt_ewadd_array((int16_t *)l->elptr, (float   *)r->elptr, l->size); break;
+                case DTYPE_FLOAT64: new_ptr = mxt_ewadd_array((int16_t *)l->elptr, (double  *)r->elptr, l->size); break;
+            }
+            break;
+        case DTYPE_INT32:
+            switch (r->dtype) {
+                case DTYPE_INT8:    new_ptr = mxt_ewadd_array((int32_t *)l->elptr, (int8_t  *)r->elptr, l->size); break;
+                case DTYPE_INT16:   new_ptr = mxt_ewadd_array((int32_t *)l->elptr, (int16_t *)r->elptr, l->size); break;
+                case DTYPE_INT32:   new_ptr = mxt_ewadd_array((int32_t *)l->elptr, (int32_t *)r->elptr, l->size); break;
+                case DTYPE_INT64:   new_ptr = mxt_ewadd_array((int32_t *)l->elptr, (int64_t *)r->elptr, l->size); break;
+                case DTYPE_FLOAT32: new_ptr = mxt_ewadd_array((int32_t *)l->elptr, (float   *)r->elptr, l->size); break;
+                case DTYPE_FLOAT64: new_ptr = mxt_ewadd_array((int32_t *)l->elptr, (double  *)r->elptr, l->size); break;
+            }
+            break;
+        case DTYPE_INT64:
+            switch (r->dtype) {
+                case DTYPE_INT8:    new_ptr = mxt_ewadd_array((int64_t *)l->elptr, (int8_t  *)r->elptr, l->size); break;
+                case DTYPE_INT16:   new_ptr = mxt_ewadd_array((int64_t *)l->elptr, (int16_t *)r->elptr, l->size); break;
+                case DTYPE_INT32:   new_ptr = mxt_ewadd_array((int64_t *)l->elptr, (int32_t *)r->elptr, l->size); break;
+                case DTYPE_INT64:   new_ptr = mxt_ewadd_array((int64_t *)l->elptr, (int64_t *)r->elptr, l->size); break;
+                case DTYPE_FLOAT32: new_ptr = mxt_ewadd_array((int64_t *)l->elptr, (float   *)r->elptr, l->size); break;
+                case DTYPE_FLOAT64: new_ptr = mxt_ewadd_array((int64_t *)l->elptr, (double  *)r->elptr, l->size); break;
+            }
+            break;
+        case DTYPE_FLOAT32:
+            switch (r->dtype) {
+                case DTYPE_INT8:    new_ptr = mxt_ewadd_array((float *)l->elptr, (int8_t  *)r->elptr, l->size); break;
+                case DTYPE_INT16:   new_ptr = mxt_ewadd_array((float *)l->elptr, (int16_t *)r->elptr, l->size); break;
+                case DTYPE_INT32:   new_ptr = mxt_ewadd_array((float *)l->elptr, (int32_t *)r->elptr, l->size); break;
+                case DTYPE_INT64:   new_ptr = mxt_ewadd_array((float *)l->elptr, (int64_t *)r->elptr, l->size); break;
+                case DTYPE_FLOAT32: new_ptr = mxt_ewadd_array((float *)l->elptr, (float   *)r->elptr, l->size); break;
+                case DTYPE_FLOAT64: new_ptr = mxt_ewadd_array((float *)l->elptr, (double  *)r->elptr, l->size); break;
+            }
+            break;
+        case DTYPE_FLOAT64:
+            switch (r->dtype) {
+                case DTYPE_INT8:    new_ptr = mxt_ewadd_array((double *)l->elptr, (int8_t  *)r->elptr, l->size); break;
+                case DTYPE_INT16:   new_ptr = mxt_ewadd_array((double *)l->elptr, (int16_t *)r->elptr, l->size); break;
+                case DTYPE_INT32:   new_ptr = mxt_ewadd_array((double *)l->elptr, (int32_t *)r->elptr, l->size); break;
+                case DTYPE_INT64:   new_ptr = mxt_ewadd_array((double *)l->elptr, (int64_t *)r->elptr, l->size); break;
+                case DTYPE_FLOAT32: new_ptr = mxt_ewadd_array((double *)l->elptr, (float   *)r->elptr, l->size); break;
+                case DTYPE_FLOAT64: new_ptr = mxt_ewadd_array((double *)l->elptr, (double  *)r->elptr, l->size); break;
+            }
+            break;
+    }
+
+    MX *new_mx = mxx_copy_shape(l);
+    new_mx->dtype = l->dtype > r->dtype ? l->dtype : r->dtype;
+    new_mx->elptr = new_ptr;
+
+    return new_mx;
+}
+
 MX *mxx_ewmul_array(MX *l, MX *r)
 {
     void *new_ptr;
@@ -73,6 +146,18 @@ MX *mxx_ewmul_array(MX *l, MX *r)
     new_mx->elptr = new_ptr;
 
     return new_mx;
+}
+
+void mxx_ewadd_scalar(MX *l, double r)
+{
+    switch (l->dtype) {
+        case DTYPE_INT8:    mxt_ewadd_scalar((int8_t  *)l->elptr, r, l->size); break;
+        case DTYPE_INT16:   mxt_ewadd_scalar((int16_t *)l->elptr, r, l->size); break;
+        case DTYPE_INT32:   mxt_ewadd_scalar((int32_t *)l->elptr, r, l->size); break;
+        case DTYPE_INT64:   mxt_ewadd_scalar((int64_t *)l->elptr, r, l->size); break;
+        case DTYPE_FLOAT32: mxt_ewadd_scalar((float   *)l->elptr, r, l->size); break;
+        case DTYPE_FLOAT64: mxt_ewadd_scalar((double  *)l->elptr, r, l->size); break;
+    }
 }
 
 void mxx_ewmul_scalar(MX *l, double r)

@@ -4,6 +4,27 @@
 #include <ruby.h>
 
 template <typename L, typename R>
+void *mxt_ewadd_array(L *l, R* r, size_t n)
+{
+    size_t lsize = sizeof(L);
+    size_t rsize = sizeof(R);
+    size_t dsize = lsize > rsize ? lsize : rsize;
+    void *new_ptr = MX_ALLOC_N(char, n * dsize);
+
+    if (lsize > rsize) {
+        for (size_t i = 0; i < n; i++) {
+            *(((L *)new_ptr) + i) = *(((L *)l) + i) + (L)(*(((R *)r) + i));
+        }
+    } else {
+        for (size_t i = 0; i < n; i++) {
+            *(((R *)new_ptr) + i) = (R)(*(((L *)l) + i)) + *(((R *)r) + i);
+        }
+    }
+
+    return new_ptr;
+}
+
+template <typename L, typename R>
 void *mxt_ewmul_array(L *l, R* r, size_t n)
 {
     size_t lsize = sizeof(L);
@@ -13,15 +34,23 @@ void *mxt_ewmul_array(L *l, R* r, size_t n)
 
     if (lsize > rsize) {
         for (size_t i = 0; i < n; i++) {
-            *(((L *)new_ptr) + i) = *(((L *)l) + i) * *(((R *)r) + i);
+            *(((L *)new_ptr) + i) = *(((L *)l) + i) * (L)(*(((R *)r) + i));
         }
     } else {
         for (size_t i = 0; i < n; i++) {
-            *(((R *)new_ptr) + i) = *(((L *)l) + i) * *(((R *)r) + i);
+            *(((R *)new_ptr) + i) = (R)(*(((L *)l) + i)) * *(((R *)r) + i);
         }
     }
 
     return new_ptr;
+}
+
+template <typename L>
+void mxt_ewadd_scalar(L *l, double r, size_t n)
+{
+    for (size_t i = 0; i < n; i++) {
+        *(((L *)l) + i) += (L)r;
+    }
 }
 
 template <typename L>

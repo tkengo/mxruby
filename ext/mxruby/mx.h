@@ -97,11 +97,15 @@ extern DTYPE mxx_dtype_from_symbol(VALUE dtype);
 extern MX *mxx_copy_shape(MX *src);
 extern MX *mxx_cast_copy(MX *src, DTYPE dtype);
 extern bool mxx_is_same_shape(MX *m1, MX *m2);
+extern void mxx_rb_to_c(void *p, DTYPE dtype, VALUE v);
+extern VALUE mxx_c_to_rb(void *p, DTYPE dtype);
 
 /**
  * Defined in ewop.cpp
  */
+extern MX *mxx_ewadd_array(MX *l, MX *r);
 extern MX *mxx_ewmul_array(MX *l, MX *r);
+extern void mxx_ewadd_scalar(MX *l, double r);
 extern void mxx_ewmul_scalar(MX *l, double r);
 
 #ifdef __cplusplus

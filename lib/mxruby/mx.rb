@@ -23,6 +23,14 @@ class MX
     __set__(shape, initial_value, opt)
   end
 
+  def inspect
+    to_a.to_s
+  end
+
+  def to_ary
+    to_a
+  end
+
   class << self
     def zeros(shape)
       return MX.fill(shape, 0)

@@ -44,7 +44,10 @@ void mxx_initialize_shape(MX *mx, VALUE shape)
         mx->shape[i] = FIX2INT(shape_is_array ? RARRAY_AREF(shape, i) : shape);
         mx->size *= mx->shape[i];
     }
-    mx->elptr = MX_ALLOC_N(char, DTYPE_SIZES[mx->dtype] * mx->size);
+
+    if (mx->size > 0) {
+        mx->elptr = MX_ALLOC_N(char, DTYPE_SIZES[mx->dtype] * mx->size);
+    }
 }
 
 void mxx_free(MX *mx)
@@ -67,54 +70,6 @@ static VALUE mx_alloc(VALUE klass)
     return Data_Wrap_Struct(klass, 0, mxx_free, mx);
 }
 
-void mx_type_rb_to_c(void *p, DTYPE dtype, VALUE v)
-{
-    switch (dtype) {
-        case DTYPE_INT8:
-            *(int8_t *)p = FIX2INT(v);
-            break;
-        case DTYPE_INT16:
-            *(int16_t *)p = FIX2INT(v);
-            break;
-        case DTYPE_INT32:
-            *(int32_t *)p = FIX2INT(v);
-            break;
-        case DTYPE_INT64:
-            *(int64_t *)p = FIX2INT(v);
-            break;
-        case DTYPE_FLOAT32:
-            *(float *)p = NUM2DBL(v);
-            break;
-        case DTYPE_FLOAT64:
-            *(double *)p = NUM2DBL(v);
-            break;
-    }
-}
-
-void mx_type_c_to_rb(void *p, DTYPE dtype, VALUE *v)
-{
-    switch (dtype) {
-        case DTYPE_INT8:
-            *v = INT2FIX(*(int8_t *)p);
-            break;
-        case DTYPE_INT16:
-            *v = INT2FIX(*(int16_t *)p);
-            break;
-        case DTYPE_INT32:
-            *v = INT2FIX(*(int32_t *)p);
-            break;
-        case DTYPE_INT64:
-            *v = INT2FIX(*(int64_t *)p);
-            break;
-        case DTYPE_FLOAT32:
-            *v = rb_float_new(*(float *)p);
-            break;
-        case DTYPE_FLOAT64:
-            *v = rb_float_new(*(double *)p);
-            break;
-    }
-}
-
 static VALUE mx_initialize(VALUE self, VALUE shape, VALUE initial_value, VALUE opt)
 {
     MX *mx;
@@ -132,11 +87,11 @@ static VALUE mx_initialize(VALUE self, VALUE shape, VALUE initial_value, VALUE o
     if (TYPE(initial_value) == T_ARRAY) {
         for (int i = 0; i < mx->size; i++) {
             VALUE v = RARRAY_AREF(initial_value, i);
-            mx_type_rb_to_c(mx->elptr + i * DTYPE_SIZES[mx->dtype], mx->dtype, v);
+            mxx_rb_to_c(mx->elptr + i * DTYPE_SIZES[mx->dtype], mx->dtype, v);
         }
     } else if (!NIL_P(initial_value)) {
         for (int i = 0; i < mx->size; i++) {
-            mx_type_rb_to_c(mx->elptr + i * DTYPE_SIZES[mx->dtype], mx->dtype, initial_value);
+            mxx_rb_to_c(mx->elptr + i * DTYPE_SIZES[mx->dtype], mx->dtype, initial_value);
         }
     }
 
@@ -204,7 +159,7 @@ static void mxs_to_a(VALUE *ary, size_t shape_index, size_t array_index, MX *mx)
     if (shape_index == mx->dim - 1) {
         for (int i = 0; i < mx->shape[shape_index]; i++) {
             void *p = (char *)mx->elptr + (i + array_index) * DTYPE_SIZES[mx->dtype];
-            mx_type_c_to_rb(p, mx->dtype, &ary[i]);
+            ary[i] = mxx_c_to_rb(p, mx->dtype);
         }
     } else {
         size_t skip = 1;
@@ -234,9 +189,42 @@ static VALUE mx_flatten(VALUE self)
     VALUE *el = MX_ALLOC_N(VALUE, mx->size);
     size_t dsize = DTYPE_SIZES[mx->dtype];
     for (int i = 0; i < mx->size; i++) {
-        mx_type_c_to_rb((char *)mx->elptr + i * dsize, mx->dtype, &el[i]);
+        el[i] = mxx_c_to_rb((char *)mx->elptr + i * dsize, mx->dtype);
     }
     return rb_ary_new4(mx->size, el);
+}
+
+static VALUE mx_first(VALUE self)
+{
+    MX *mx = MX_DATA_PTR(self);
+    if (mx->size > 0) {
+        return mxx_c_to_rb(mx->elptr, mx->dtype);
+    }
+    return Qnil;
+}
+
+static VALUE mx_second(VALUE self)
+{
+    MX *mx = MX_DATA_PTR(self);
+    if (mx->size > 1) {
+        return mxx_c_to_rb(mx->elptr + DTYPE_SIZES[mx->dtype], mx->dtype);
+    }
+    return Qnil;
+}
+
+static VALUE mx_last(VALUE self)
+{
+    MX *mx = MX_DATA_PTR(self);
+    if (mx->size > 0) {
+        return mxx_c_to_rb(mx->elptr + (mx->size - 1) * DTYPE_SIZES[mx->dtype], mx->dtype);
+    }
+    return Qnil;
+}
+
+static VALUE mx_is_empty(VALUE self)
+{
+    MX *mx = MX_DATA_PTR(self);
+    return mx->size == 0 ? Qtrue : Qfalse;
 }
 
 static VALUE mx_set(int argc, VALUE *argv, VALUE self)
@@ -261,9 +249,28 @@ static VALUE mx_get(int argc, VALUE *argv, VALUE self)
         pos += FIX2INT(RARRAY_AREF(idx, i)) * skip;
     }
 
-    VALUE v;
-    mx_type_c_to_rb((char *)mx->elptr + pos * DTYPE_SIZES[mx->dtype], mx->dtype, &v);
-    return v;
+    return mxx_c_to_rb((char *)mx->elptr + pos * DTYPE_SIZES[mx->dtype], mx->dtype);
+}
+
+static VALUE mx_ewadd(VALUE self, VALUE other)
+{
+    MX *mx = MX_DATA_PTR(self);
+    MX *new_mx;
+
+    if (IS_MX(other)) {
+        MX *other_mx = MX_DATA_PTR(other);
+        if (!mxx_is_same_shape(mx, other_mx)) {
+            rb_raise(rb_eDataTypeError, "Cannot do add operation between shape of [ %ld ] and [ %ld ]", mx->size, other_mx->size);
+        }
+        new_mx = mxx_ewadd_array(mx, other_mx);
+    } else {
+        DTYPE new_dtype = TYPE(other) == T_FLOAT ? DTYPE_FLOAT64 : mx->dtype;
+        double v = NUM2DBL(other);
+        new_mx = mxx_cast_copy(mx, new_dtype);
+        mxx_ewadd_scalar(new_mx, v);
+    }
+
+    return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
 }
 
 static VALUE mx_ewmul(VALUE self, VALUE other)
@@ -290,32 +297,44 @@ static VALUE mx_ewmul(VALUE self, VALUE other)
 static VALUE mx_sing_arange(int argc, VALUE *argv, VALUE klass)
 {
     DTYPE dtype;
-    double start, stop;
-    int start_type, stop_type;
+    double start, stop, step;
+    int start_type, stop_type, step_type;
     VALUE rb_start, rb_stop, rb_step, rb_opt;
     rb_scan_args(argc, argv, "12:", &rb_start, &rb_stop, &rb_step, &rb_opt);
 
     if (NIL_P(rb_stop)) {
-        start = 0;
-        stop  = NUM2DBL(rb_start);
+        start      = 0;
+        stop       = NUM2DBL(rb_start);
         start_type = T_FIXNUM;
         stop_type  = TYPE(rb_start);
     } else {
-        start = NUM2DBL(rb_start);
-        stop  = NUM2DBL(rb_stop);
+        start      = NUM2DBL(rb_start);
+        stop       = NUM2DBL(rb_stop);
         start_type = TYPE(rb_start);
         stop_type  = TYPE(rb_stop);
     }
-    size_t step = NIL_P(rb_step) ? step = 1 : FIX2INT(rb_step);
 
-    if ((start_type == T_FIXNUM || start_type == T_BIGNUM) &&
-        (stop_type  == T_FIXNUM || stop_type  == T_BIGNUM)) {
+    step      = NIL_P(rb_step) ? 1 : NUM2DBL(rb_step);
+    step_type = NIL_P(rb_step) ? T_FIXNUM : TYPE(rb_step);
+
+    if (step == 0) {
+        rb_raise(rb_eArgError, "Cannot specify 0 to the step argument");
+    } else if (step > 0 && start > stop) {
+        rb_raise(rb_eArgError, "Confuse arguments order. start > stop.");
+    } else if (step < 0 && start < stop) {
+        rb_raise(rb_eArgError, "Confuse arguments order. start < stop.");
+    } else if (start == stop) {
+        MX *mx = MX_INIT_D(INT2FIX(0), DTYPE_INT64);
+        return Data_Wrap_Struct(klass, 0, mxx_free, mx);
+    }
+
+    if (step_type == T_FIXNUM && start_type == T_FIXNUM && stop_type == T_FIXNUM) {
         dtype = DTYPE_INT64;
     } else {
         dtype = DTYPE_FLOAT64;
     }
 
-    size_t shape = (size_t)ceil((stop - start) / (double)step);
+    size_t shape = (size_t)fabs(ceil((stop - start) / step));
     MX *mx = MX_INIT_D(INT2FIX(shape), dtype);
 
     double current = start;
@@ -333,17 +352,21 @@ static VALUE mx_sing_arange(int argc, VALUE *argv, VALUE klass)
 
 static VALUE mx_sing_linspace(int argc, VALUE *argv, VALUE klass)
 {
-    VALUE rb_start, rb_end, rb_shape, rb_opt;
-    rb_scan_args(argc, argv, "21:", &rb_start, &rb_end, &rb_shape, &rb_opt);
+    VALUE rb_start, rb_stop, rb_shape, rb_opt;
+    rb_scan_args(argc, argv, "21:", &rb_start, &rb_stop, &rb_shape, &rb_opt);
 
     if (NIL_P(rb_shape)) {
         rb_shape = INT2FIX(100);
     }
 
+    if (FIX2INT(rb_shape) < 0) {
+        rb_raise(rb_eArgError, "Cannot specify negative number to the shape argument");
+    }
+
     MX *mx = MX_INIT_D(rb_shape, DTYPE_FLOAT64);
     double start = NUM2DBL(rb_start);
-    double end   = NUM2DBL(rb_end);
-    double step  = (end - start) * (1.0 / (double)(mx->size - 1));
+    double stop  = NUM2DBL(rb_stop);
+    double step  = (stop - start) * (1.0 / (double)(mx->size - 1));
 
     double current = start;
     for (int i = 0; i < mx->size; i++) {
@@ -371,9 +394,15 @@ void Init_mxruby()
     rb_define_method(rb_cMx, "astype", mx_astype, -1);
     rb_define_method(rb_cMx, "to_a", mx_to_a, 0);
     rb_define_method(rb_cMx, "flatten", mx_flatten, 0);
+    rb_define_method(rb_cMx, "first", mx_first, 0);
+    rb_define_method(rb_cMx, "second", mx_second, 0);
+    rb_define_method(rb_cMx, "last", mx_last, 0);
+
+    rb_define_method(rb_cMx, "empty?", mx_is_empty, 0);
 
     rb_define_method(rb_cMx, "[]=", mx_set, -1);
     rb_define_method(rb_cMx, "[]", mx_get, -1);
+    rb_define_method(rb_cMx, "+", mx_ewadd, 1);
     rb_define_method(rb_cMx, "*", mx_ewmul, 1);
 
     rb_define_singleton_method(rb_cMx, "arange", mx_sing_arange, -1);
