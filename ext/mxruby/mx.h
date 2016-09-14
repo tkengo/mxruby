@@ -1,6 +1,7 @@
 #ifndef _MX_MX_H_
 #define _MX_MX_H_
 
+#include <ruby.h>
 #include <float.h>
 #include <stdbool.h>
 
@@ -83,7 +84,6 @@ extern VALUE rb_eDataTypeError;
 extern void Init_random();
 
 extern void mxx_cast(MX *mx, DTYPE new_dtype);
-extern MX *mxx_cast_copy(MX *src, DTYPE new_dtype);
 
 extern void mxx_free(MX *mx);
 extern MX *mxx_initialize(VALUE shape, DTYPE dtype);
@@ -92,21 +92,37 @@ extern void mxx_initialize_shape(MX *mx, VALUE shape);
 extern DTYPE mxx_dtype_from_symbol(VALUE dtype);
 
 /**
- * Defined in util.c
+ * Defined in copy.cpp
  */
-extern MX *mxx_copy_shape(MX *src);
-extern MX *mxx_cast_copy(MX *src, DTYPE dtype);
-extern bool mxx_is_same_shape(MX *m1, MX *m2);
-extern void mxx_rb_to_c(void *p, DTYPE dtype, VALUE v);
-extern VALUE mxx_c_to_rb(void *p, DTYPE dtype);
+extern void mxx_copy_shape(MX *src, MX *dest);
+extern void mxx_copy(MX *src, MX *dest);
+extern void mxx_copy_cast(MX *src, MX *dest, DTYPE new_dtype);
+extern void mxx_copy_elptr(MX *src, MX *dest);
+extern void mxx_copy_cast_elptr(MX *src, MX *dest, DTYPE cast_dtype);
 
 /**
  * Defined in ewop.cpp
  */
-extern MX *mxx_ewadd_array(MX *l, MX *r);
-extern MX *mxx_ewmul_array(MX *l, MX *r);
+extern void mxx_ewadd_array(MX *l, MX *r, MX *out);
+extern void mxx_ewsub_array(MX *l, MX *r, MX *out);
+extern void mxx_ewmul_array(MX *l, MX *r, MX *out);
+extern void mxx_ewintpow_array(MX *l, MX *r, MX *out);
 extern void mxx_ewadd_scalar(MX *l, double r);
+extern void mxx_ewsub_scalar(MX *l, double r);
 extern void mxx_ewmul_scalar(MX *l, double r);
+extern void mxx_ewintpow_scalar(MX *l, int r);
+
+/**
+ * Defined in math.c
+ */
+extern double int_pow(double a, int b);
+
+/**
+ * Defined in util.c
+ */
+extern bool mxx_is_same_shape(MX *m1, MX *m2);
+extern void mxx_rb_to_c(void *p, DTYPE dtype, VALUE v);
+extern VALUE mxx_c_to_rb(void *p, DTYPE dtype);
 
 #ifdef __cplusplus
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (c) 2016 Kengo Tateishi (@tkengo)
  * Licensed under MIT license.
  *   http://www.opensource.org/licenses/mit-license.php
@@ -12,6 +12,9 @@
 #include <cblas.h>
 #include "mx.h"
 
+/*
+ * MX class object in C. This is initialized in Init_mxruby function.
+ */
 VALUE rb_cMx;
 VALUE rb_eDataTypeError;
 
@@ -20,6 +23,11 @@ MX *mxx_initialize(VALUE shape, DTYPE dtype)
     MX *mx = MX_ALLOC(MX);
     mxx_setup(mx, dtype);
     mxx_initialize_shape(mx, shape);
+
+    if (mx->size > 0) {
+        mx->elptr = MX_ALLOC_N(char, DTYPE_SIZES[mx->dtype] * mx->size);
+    }
+
     return mx;
 }
 
@@ -43,10 +51,6 @@ void mxx_initialize_shape(MX *mx, VALUE shape)
     for (int i = 0; i < mx->dim; i++) {
         mx->shape[i] = FIX2INT(shape_is_array ? RARRAY_AREF(shape, i) : shape);
         mx->size *= mx->shape[i];
-    }
-
-    if (mx->size > 0) {
-        mx->elptr = MX_ALLOC_N(char, DTYPE_SIZES[mx->dtype] * mx->size);
     }
 }
 
@@ -84,14 +88,18 @@ static VALUE mx_initialize(VALUE self, VALUE shape, VALUE initial_value, VALUE o
 
     mxx_initialize_shape(mx, shape);
 
-    if (TYPE(initial_value) == T_ARRAY) {
-        for (int i = 0; i < mx->size; i++) {
-            VALUE v = RARRAY_AREF(initial_value, i);
-            mxx_rb_to_c(mx->elptr + i * DTYPE_SIZES[mx->dtype], mx->dtype, v);
-        }
-    } else if (!NIL_P(initial_value)) {
-        for (int i = 0; i < mx->size; i++) {
-            mxx_rb_to_c(mx->elptr + i * DTYPE_SIZES[mx->dtype], mx->dtype, initial_value);
+    if (mx->size > 0) {
+        mx->elptr = MX_ALLOC_N(char, DTYPE_SIZES[mx->dtype] * mx->size);
+
+        if (TYPE(initial_value) == T_ARRAY) {
+            for (int i = 0; i < mx->size; i++) {
+                VALUE v = RARRAY_AREF(initial_value, i);
+                mxx_rb_to_c(mx->elptr + i * DTYPE_SIZES[mx->dtype], mx->dtype, v);
+            }
+        } else if (!NIL_P(initial_value)) {
+            for (int i = 0; i < mx->size; i++) {
+                mxx_rb_to_c(mx->elptr + i * DTYPE_SIZES[mx->dtype], mx->dtype, initial_value);
+            }
         }
     }
 
@@ -149,7 +157,8 @@ static VALUE mx_astype(int argc, VALUE *argv, VALUE self)
     rb_scan_args(argc, argv, "1:", &rb_new_dtype, &rb_opt);
 
     DTYPE new_dtype = mxx_dtype_from_symbol(rb_new_dtype);
-    MX *dest = mxx_cast_copy(MX_DATA_PTR(self), new_dtype);
+    MX *dest = MX_ALLOC(MX);
+    mxx_copy_cast(MX_DATA_PTR(self), dest, new_dtype);
 
     return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, dest);
 }
@@ -221,6 +230,25 @@ static VALUE mx_last(VALUE self)
     return Qnil;
 }
 
+static VALUE mx_reshape(VALUE self, VALUE shape)
+{
+    MX *mx = MX_DATA_PTR(self);
+
+    MX *reshaped_mx = MX_ALLOC(MX);
+    mxx_initialize_shape(reshaped_mx, shape);
+
+    if (mx->size != reshaped_mx->size) {
+        rb_raise(rb_eArgError, "Cannot do reshape operation between shape size of [ %ld ] and [ %ld ]. Total size of new array must be unchanged.", mx->size, reshaped_mx->size);
+    }
+
+    reshaped_mx->dtype = mx->dtype;
+    reshaped_mx->elptr = MX_ALLOC_N(char, reshaped_mx->size * DTYPE_SIZES[reshaped_mx->dtype]);
+
+    mxx_copy_elptr(mx, reshaped_mx);
+    return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, reshaped_mx);
+    return self;
+}
+
 static VALUE mx_is_empty(VALUE self)
 {
     MX *mx = MX_DATA_PTR(self);
@@ -255,19 +283,40 @@ static VALUE mx_get(int argc, VALUE *argv, VALUE self)
 static VALUE mx_ewadd(VALUE self, VALUE other)
 {
     MX *mx = MX_DATA_PTR(self);
-    MX *new_mx;
+    MX *new_mx = MX_ALLOC(MX);
 
     if (IS_MX(other)) {
         MX *other_mx = MX_DATA_PTR(other);
         if (!mxx_is_same_shape(mx, other_mx)) {
-            rb_raise(rb_eDataTypeError, "Cannot do add operation between shape of [ %ld ] and [ %ld ]", mx->size, other_mx->size);
+            rb_raise(rb_eDataTypeError, "Cannot do power operation between different shapes");
         }
-        new_mx = mxx_ewadd_array(mx, other_mx);
+        mxx_ewadd_array(mx, other_mx, new_mx);
     } else {
         DTYPE new_dtype = TYPE(other) == T_FLOAT ? DTYPE_FLOAT64 : mx->dtype;
         double v = NUM2DBL(other);
-        new_mx = mxx_cast_copy(mx, new_dtype);
+        mxx_copy_cast(mx, new_mx, new_dtype);
         mxx_ewadd_scalar(new_mx, v);
+    }
+
+    return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
+}
+
+static VALUE mx_ewsub(VALUE self, VALUE other)
+{
+    MX *mx = MX_DATA_PTR(self);
+    MX *new_mx = MX_ALLOC(MX);
+
+    if (IS_MX(other)) {
+        MX *other_mx = MX_DATA_PTR(other);
+        if (!mxx_is_same_shape(mx, other_mx)) {
+            rb_raise(rb_eDataTypeError, "Cannot do power operation between different shapes");
+        }
+        mxx_ewsub_array(mx, other_mx, new_mx);
+    } else {
+        DTYPE new_dtype = TYPE(other) == T_FLOAT ? DTYPE_FLOAT64 : mx->dtype;
+        double v = NUM2DBL(other);
+        mxx_copy_cast(mx, new_mx, new_dtype);
+        mxx_ewsub_scalar(new_mx, v);
     }
 
     return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
@@ -276,19 +325,48 @@ static VALUE mx_ewadd(VALUE self, VALUE other)
 static VALUE mx_ewmul(VALUE self, VALUE other)
 {
     MX *mx = MX_DATA_PTR(self);
-    MX *new_mx;
+    MX *new_mx = MX_ALLOC(MX);
 
     if (IS_MX(other)) {
         MX *other_mx = MX_DATA_PTR(other);
         if (!mxx_is_same_shape(mx, other_mx)) {
-            rb_raise(rb_eDataTypeError, "Cannot do multiply operation between shape of [ %ld ] and [ %ld ]", mx->size, other_mx->size);
+            rb_raise(rb_eDataTypeError, "Cannot do power operation between different shapes");
         }
-        new_mx = mxx_ewmul_array(mx, other_mx);
+        mxx_ewmul_array(mx, other_mx, new_mx);
     } else {
         DTYPE new_dtype = TYPE(other) == T_FLOAT ? DTYPE_FLOAT64 : mx->dtype;
         double v = NUM2DBL(other);
-        new_mx = mxx_cast_copy(mx, new_dtype);
+        mxx_copy_cast(mx, new_mx, new_dtype);
         mxx_ewmul_scalar(new_mx, v);
+    }
+
+    return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
+}
+
+static VALUE mx_ewpow(VALUE self, VALUE other)
+{
+    MX *mx = MX_DATA_PTR(self);
+    MX *new_mx = MX_ALLOC(MX);
+
+    if (IS_MX(other)) {
+        MX *other_mx = MX_DATA_PTR(other);
+        if (!mxx_is_same_shape(mx, other_mx)) {
+            rb_raise(rb_eDataTypeError, "Cannot do power operation between different shapes");
+        }
+
+        if (DTYPE_IS_INT(other_mx->dtype)) {
+            mxx_ewintpow_array(mx, other_mx, new_mx);
+        } else {
+            return self;
+        }
+    } else {
+        if (TYPE(other) == T_FIXNUM) {
+            mxx_copy(mx, new_mx);
+            mxx_ewintpow_scalar(new_mx, FIX2INT(other));
+        } else {
+            mxx_copy_cast(mx, new_mx, DTYPE_FLOAT64);
+            mxx_ewpow_scalar(new_mx, NUM2DBL(other));
+        }
     }
 
     return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
@@ -397,13 +475,16 @@ void Init_mxruby()
     rb_define_method(rb_cMx, "first", mx_first, 0);
     rb_define_method(rb_cMx, "second", mx_second, 0);
     rb_define_method(rb_cMx, "last", mx_last, 0);
+    rb_define_method(rb_cMx, "reshape", mx_reshape, 1);
 
     rb_define_method(rb_cMx, "empty?", mx_is_empty, 0);
 
     rb_define_method(rb_cMx, "[]=", mx_set, -1);
     rb_define_method(rb_cMx, "[]", mx_get, -1);
     rb_define_method(rb_cMx, "+", mx_ewadd, 1);
+    rb_define_method(rb_cMx, "-", mx_ewsub, 1);
     rb_define_method(rb_cMx, "*", mx_ewmul, 1);
+    rb_define_method(rb_cMx, "**", mx_ewpow, 1);
 
     rb_define_singleton_method(rb_cMx, "arange", mx_sing_arange, -1);
     rb_define_singleton_method(rb_cMx, "linspace", mx_sing_linspace, -1);
