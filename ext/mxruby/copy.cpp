@@ -1,5 +1,5 @@
 #include "mx.h"
-#include "ewop.h"
+#include "type.h"
 
 void mxx_copy_shape(MX *src, MX *dest)
 {

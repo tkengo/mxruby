@@ -20,7 +20,6 @@ describe MX do
 
         it 'creates sequence from 0 to stop number' do
           expect(@mx).to match_array((0...stop).to_a)
-          expect(@mx.dtype).to eq(:int64)
         end
       end
 
@@ -29,7 +28,6 @@ describe MX do
 
         it 'creates empty array' do
           expect(@mx).to match_array((0...stop.ceil).to_a)
-          expect(@mx.dtype).to eq(:float64)
         end
       end
     end
@@ -45,7 +43,6 @@ describe MX do
 
         it 'creates sequence from start to stop' do
           expect(@mx).to match_array((start...stop).to_a)
-          expect(@mx.dtype).to eq(:int64)
         end
       end
 
@@ -55,7 +52,6 @@ describe MX do
 
         it 'creates empty array' do
           expect(@mx).to match_array((start...stop).to_a)
-          expect(@mx.dtype).to eq(:int64)
         end
       end
 
@@ -68,7 +64,6 @@ describe MX do
           expected = (start.to_i...stop.ceil).map{|v| v + diff }
 
           expect(@mx).to match_array(expected)
-          expect(@mx.dtype).to eq(:float64)
         end
       end
     end
@@ -85,7 +80,6 @@ describe MX do
 
         it 'creates sequence from start to stop by step' do
           expect(@mx).to match_array((start...stop).step(step).to_a)
-          expect(@mx.dtype).to eq(:int64)
         end
       end
 
@@ -96,7 +90,6 @@ describe MX do
 
         it 'creates reverse sequence' do
           expect(@mx).to match_array([ 10, 8, 6, 4, 2 ])
-          expect(@mx.dtype).to eq(:int64)
         end
       end
 
@@ -110,7 +103,6 @@ describe MX do
           expect(@mx.first).to eq(start)
           expect(@mx.second).to eq(start + step)
           expect(@mx.last).to eq(stop - step)
-          expect(@mx.dtype).to eq(:float64)
         end
       end
 
@@ -124,8 +116,21 @@ describe MX do
           expect(@mx.first).to eq(start)
           expect(@mx.second).to eq(start + step)
           expect(@mx.last).to eq(stop - step)
-          expect(@mx.dtype).to eq(:float64)
         end
+      end
+    end
+
+    it 'has int64 data type as a default type' do
+      expect(MX.arange(5).dtype).to eq(:int64)
+    end
+
+    it 'has int64 data type if non exists data type was specified' do
+      expect(MX.arange(5, dtype: :int0).dtype).to eq(:int64)
+    end
+
+    it 'has specified data type' do
+      DTYPES.each do |dtype|
+        expect(MX.arange(5, dtype: dtype).dtype).to eq(dtype)
       end
     end
 

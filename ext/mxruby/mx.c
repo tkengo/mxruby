@@ -246,7 +246,18 @@ static VALUE mx_reshape(VALUE self, VALUE shape)
 
     mxx_copy_elptr(mx, reshaped_mx);
     return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, reshaped_mx);
-    return self;
+}
+
+static VALUE mx_sum(int argc, VALUE *argv, VALUE self)
+{
+    MX *mx = MX_DATA_PTR(self);
+
+    if (DTYPE_IS_INT(mx->dtype)) {
+        long sum = (long)mxx_sum(mx);
+        return INT2FIX(sum);
+    } else {
+        return rb_float_new(mxx_sum(mx));
+    }
 }
 
 static VALUE mx_is_empty(VALUE self)
@@ -288,7 +299,7 @@ static VALUE mx_ewadd(VALUE self, VALUE other)
     if (IS_MX(other)) {
         MX *other_mx = MX_DATA_PTR(other);
         if (!mxx_is_same_shape(mx, other_mx)) {
-            rb_raise(rb_eDataTypeError, "Cannot do power operation between different shapes");
+            rb_raise(rb_eDataTypeError, "Cannot do addition operation between different shapes");
         }
         mxx_ewadd_array(mx, other_mx, new_mx);
     } else {
@@ -309,7 +320,7 @@ static VALUE mx_ewsub(VALUE self, VALUE other)
     if (IS_MX(other)) {
         MX *other_mx = MX_DATA_PTR(other);
         if (!mxx_is_same_shape(mx, other_mx)) {
-            rb_raise(rb_eDataTypeError, "Cannot do power operation between different shapes");
+            rb_raise(rb_eDataTypeError, "Cannot do subtraction operation between different shapes");
         }
         mxx_ewsub_array(mx, other_mx, new_mx);
     } else {
@@ -330,7 +341,7 @@ static VALUE mx_ewmul(VALUE self, VALUE other)
     if (IS_MX(other)) {
         MX *other_mx = MX_DATA_PTR(other);
         if (!mxx_is_same_shape(mx, other_mx)) {
-            rb_raise(rb_eDataTypeError, "Cannot do power operation between different shapes");
+            rb_raise(rb_eDataTypeError, "Cannot do multiplication operation between different shapes");
         }
         mxx_ewmul_array(mx, other_mx, new_mx);
     } else {
@@ -357,7 +368,7 @@ static VALUE mx_ewpow(VALUE self, VALUE other)
         if (DTYPE_IS_INT(other_mx->dtype)) {
             mxx_ewintpow_array(mx, other_mx, new_mx);
         } else {
-            return self;
+            mxx_ewpow_array(mx, other_mx, new_mx);
         }
     } else {
         if (TYPE(other) == T_FIXNUM) {
@@ -374,11 +385,12 @@ static VALUE mx_ewpow(VALUE self, VALUE other)
 
 static VALUE mx_sing_arange(int argc, VALUE *argv, VALUE klass)
 {
-    DTYPE dtype;
     double start, stop, step;
     int start_type, stop_type, step_type;
     VALUE rb_start, rb_stop, rb_step, rb_opt;
+
     rb_scan_args(argc, argv, "12:", &rb_start, &rb_stop, &rb_step, &rb_opt);
+    DTYPE dtype = mxx_dtype_from_opt(rb_opt);
 
     if (NIL_P(rb_stop)) {
         start      = 0;
@@ -406,24 +418,17 @@ static VALUE mx_sing_arange(int argc, VALUE *argv, VALUE klass)
         return Data_Wrap_Struct(klass, 0, mxx_free, mx);
     }
 
-    if (step_type == T_FIXNUM && start_type == T_FIXNUM && stop_type == T_FIXNUM) {
-        dtype = DTYPE_INT64;
-    } else {
-        dtype = DTYPE_FLOAT64;
+    if (dtype == DTYPE_UNKNOWN) {
+        if (step_type == T_FIXNUM && start_type == T_FIXNUM && stop_type == T_FIXNUM) {
+            dtype = DTYPE_INT64;
+        } else {
+            dtype = DTYPE_FLOAT64;
+        }
     }
 
     size_t shape = (size_t)fabs(ceil((stop - start) / step));
     MX *mx = MX_INIT_D(INT2FIX(shape), dtype);
-
-    double current = start;
-    for (int i = 0; i < mx->size; i++) {
-        if (mx->dtype == DTYPE_INT64) {
-            *(((int64_t *)mx->elptr) + i) = (int64_t)current;
-        } else {
-            *(((double *)mx->elptr) + i) = current;
-        }
-        current += step;
-    }
+    mxx_arange(mx, start, step);
 
     return Data_Wrap_Struct(klass, 0, mxx_free, mx);
 }
@@ -476,6 +481,7 @@ void Init_mxruby()
     rb_define_method(rb_cMx, "second", mx_second, 0);
     rb_define_method(rb_cMx, "last", mx_last, 0);
     rb_define_method(rb_cMx, "reshape", mx_reshape, 1);
+    rb_define_method(rb_cMx, "sum", mx_sum, -1);
 
     rb_define_method(rb_cMx, "empty?", mx_is_empty, 0);
 

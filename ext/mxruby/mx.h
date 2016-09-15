@@ -11,6 +11,7 @@
 
 #define NUM_DTYPE 6
 
+#define DTYPE_UNKNOWN -1
 #define DTYPE_INT8    0
 #define DTYPE_INT16   1
 #define DTYPE_INT32   2
@@ -89,7 +90,6 @@ extern void mxx_free(MX *mx);
 extern MX *mxx_initialize(VALUE shape, DTYPE dtype);
 extern void mxx_setup(MX *mx, DTYPE dtype);
 extern void mxx_initialize_shape(MX *mx, VALUE shape);
-extern DTYPE mxx_dtype_from_symbol(VALUE dtype);
 
 /**
  * Defined in copy.cpp
@@ -101,16 +101,20 @@ extern void mxx_copy_elptr(MX *src, MX *dest);
 extern void mxx_copy_cast_elptr(MX *src, MX *dest, DTYPE cast_dtype);
 
 /**
- * Defined in ewop.cpp
+ * Defined in op.cpp
  */
 extern void mxx_ewadd_array(MX *l, MX *r, MX *out);
 extern void mxx_ewsub_array(MX *l, MX *r, MX *out);
 extern void mxx_ewmul_array(MX *l, MX *r, MX *out);
+extern void mxx_ewpow_array(MX *l, MX *r, MX *out);
 extern void mxx_ewintpow_array(MX *l, MX *r, MX *out);
 extern void mxx_ewadd_scalar(MX *l, double r);
 extern void mxx_ewsub_scalar(MX *l, double r);
 extern void mxx_ewmul_scalar(MX *l, double r);
+extern void mxx_ewpow_scalar(MX *l, double r);
 extern void mxx_ewintpow_scalar(MX *l, int r);
+extern double mxx_sum(MX *mx);
+extern void mxx_arange(MX *mx, double start, double step);
 
 /**
  * Defined in math.c
@@ -120,6 +124,8 @@ extern double int_pow(double a, int b);
 /**
  * Defined in util.c
  */
+extern DTYPE mxx_dtype_from_symbol(VALUE dtype);
+extern DTYPE mxx_dtype_from_opt(VALUE opt);
 extern bool mxx_is_same_shape(MX *m1, MX *m2);
 extern void mxx_rb_to_c(void *p, DTYPE dtype, VALUE v);
 extern VALUE mxx_c_to_rb(void *p, DTYPE dtype);

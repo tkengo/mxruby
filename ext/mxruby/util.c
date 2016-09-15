@@ -1,16 +1,26 @@
-#include <ruby.h>
 #include "mx.h"
 
 DTYPE mxx_dtype_from_symbol(VALUE dtype)
 {
-    DTYPE ret = DEFAULT_DTYPE;
     for (int i = 0; i < NUM_DTYPE; i++) {
         if (SYM2ID(dtype) == rb_intern(DTYPE_NAMES[i])) {
             return i;
         }
     }
 
-    return ret;
+    return DTYPE_UNKNOWN;
+}
+
+DTYPE mxx_dtype_from_opt(VALUE opt)
+{
+    if (!NIL_P(opt)) {
+        VALUE dtype = rb_hash_aref(opt, ID2SYM(rb_intern("dtype")));
+        if (!NIL_P(dtype)) {
+            return mxx_dtype_from_symbol(dtype);
+        }
+    }
+
+    return DTYPE_UNKNOWN;
 }
 
 bool mxx_is_same_shape(MX *m1, MX *m2)

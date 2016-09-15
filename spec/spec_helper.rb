@@ -1,6 +1,7 @@
 require 'bundler/setup'
 Bundler.setup
 
+require 'constants'
 require 'mxruby'
 
 RSpec.configure do |config|

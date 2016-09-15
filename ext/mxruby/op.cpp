@@ -1,5 +1,12 @@
+/*
+ * Copyright (c) 2016 Kengo Tateishi (@tkengo)
+ * Licensed under MIT license.
+ *   http://www.opensource.org/licenses/mit-license.php
+ *
+ * This is implementation of operations for each types. Operations are implemented by C++ template.
+ */
 #include "mx.h"
-#include "ewop.h"
+#include "type.h"
 
 #define EWOP_ARRAY_SWITCH_DISPATCH(method,type) \
     switch (r->dtype) { \
@@ -59,6 +66,23 @@ void mxx_ewmul_array(MX *l, MX *r, MX *out)
 
     mxx_copy_shape(l, out);
     out->dtype = l->dtype > r->dtype ? l->dtype : r->dtype;
+    out->elptr = new_ptr;
+}
+
+void mxx_ewpow_array(MX *l, MX *r, MX *out)
+{
+    void *new_ptr;
+    switch (l->dtype) {
+        case DTYPE_INT8:    EWOP_ARRAY_SWITCH_DISPATCH(mxt_ewpow_array, int8_t);
+        case DTYPE_INT16:   EWOP_ARRAY_SWITCH_DISPATCH(mxt_ewpow_array, int16_t);
+        case DTYPE_INT32:   EWOP_ARRAY_SWITCH_DISPATCH(mxt_ewpow_array, int32_t);
+        case DTYPE_INT64:   EWOP_ARRAY_SWITCH_DISPATCH(mxt_ewpow_array, int64_t);
+        case DTYPE_FLOAT32: EWOP_ARRAY_SWITCH_DISPATCH(mxt_ewpow_array, float);
+        case DTYPE_FLOAT64: EWOP_ARRAY_SWITCH_DISPATCH(mxt_ewpow_array, double);
+    }
+
+    mxx_copy_shape(l, out);
+    out->dtype = DTYPE_FLOAT64;
     out->elptr = new_ptr;
 }
 
@@ -127,14 +151,35 @@ void mxx_ewintpow_scalar(MX *l, int r)
     }
 }
 
-void mxx_ewpow_scalar(MX *l, int r)
+void mxx_ewpow_scalar(MX *l, double r)
 {
     switch (l->dtype) {
-        case DTYPE_INT8:    mxt_ewpow_scalar((int8_t  *)l->elptr, r, l->size); break;
-        case DTYPE_INT16:   mxt_ewpow_scalar((int16_t *)l->elptr, r, l->size); break;
-        case DTYPE_INT32:   mxt_ewpow_scalar((int32_t *)l->elptr, r, l->size); break;
-        case DTYPE_INT64:   mxt_ewpow_scalar((int64_t *)l->elptr, r, l->size); break;
-        case DTYPE_FLOAT32: mxt_ewpow_scalar((float   *)l->elptr, r, l->size); break;
-        case DTYPE_FLOAT64: mxt_ewpow_scalar((double  *)l->elptr, r, l->size); break;
+        case DTYPE_FLOAT32: mxt_ewpow_scalar((float  *)l->elptr, r, l->size); break;
+        case DTYPE_FLOAT64: mxt_ewpow_scalar((double *)l->elptr, r, l->size); break;
+    }
+}
+
+double mxx_sum(MX *mx)
+{
+    switch (mx->dtype) {
+        case DTYPE_INT8:    return mxt_sum((int8_t  *)mx->elptr, mx->size);
+        case DTYPE_INT16:   return mxt_sum((int16_t *)mx->elptr, mx->size);
+        case DTYPE_INT32:   return mxt_sum((int32_t *)mx->elptr, mx->size);
+        case DTYPE_INT64:   return mxt_sum((int64_t *)mx->elptr, mx->size);
+        case DTYPE_FLOAT32: return mxt_sum((float   *)mx->elptr, mx->size);
+        case DTYPE_FLOAT64: return mxt_sum((double  *)mx->elptr, mx->size);
+        default: return 0;
+    }
+}
+
+void mxx_arange(MX *mx, double start, double step)
+{
+    switch (mx->dtype) {
+        case DTYPE_INT8:    mxt_arange((int8_t  *)mx->elptr, mx->size, (int8_t) start, (int8_t) step); break;
+        case DTYPE_INT16:   mxt_arange((int16_t *)mx->elptr, mx->size, (int16_t)start, (int16_t)step); break;
+        case DTYPE_INT32:   mxt_arange((int32_t *)mx->elptr, mx->size, (int32_t)start, (int32_t)step); break;
+        case DTYPE_INT64:   mxt_arange((int64_t *)mx->elptr, mx->size, (int64_t)start, (int64_t)step); break;
+        case DTYPE_FLOAT32: mxt_arange((float   *)mx->elptr, mx->size, (float)  start, (float)  step); break;
+        case DTYPE_FLOAT64: mxt_arange((double  *)mx->elptr, mx->size, (double) start, (double) step); break;
     }
 }
