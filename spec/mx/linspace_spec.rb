@@ -65,6 +65,20 @@ describe MX do
       end
     end
 
+    it 'has float64 data type as a default type' do
+      expect(MX.linspace(0, 1, 5).dtype).to eq(:float64)
+    end
+
+    it 'has int64 data type if non exists data type was specified' do
+      expect(MX.linspace(0, 1, 5, dtype: :int0).dtype).to eq(:float64)
+    end
+
+    it 'has specified data type' do
+      DTYPES.each do |dtype|
+        expect(MX.linspace(0, 1, 5, dtype: dtype).dtype).to eq(dtype)
+      end
+    end
+
     context 'raise error' do
       it 'raises ArgumentError if shape is negative' do
         expect{ MX.linspace(0, 10, -1) }.to raise_error(ArgumentError)

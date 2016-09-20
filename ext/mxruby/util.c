@@ -11,16 +11,17 @@ DTYPE mxx_dtype_from_symbol(VALUE dtype)
     return DTYPE_UNKNOWN;
 }
 
-DTYPE mxx_dtype_from_opt(VALUE opt)
+DTYPE mxx_dtype_from_opt(VALUE opt, DTYPE default_dtype)
 {
     if (!NIL_P(opt)) {
         VALUE dtype = rb_hash_aref(opt, ID2SYM(rb_intern("dtype")));
         if (!NIL_P(dtype)) {
-            return mxx_dtype_from_symbol(dtype);
+            DTYPE ret = mxx_dtype_from_symbol(dtype);
+            return ret == DTYPE_UNKNOWN ? default_dtype : ret;
         }
     }
 
-    return DTYPE_UNKNOWN;
+    return default_dtype;
 }
 
 bool mxx_is_same_shape(MX *m1, MX *m2)

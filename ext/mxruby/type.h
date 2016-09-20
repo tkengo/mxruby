@@ -88,43 +88,61 @@ void *mxt_ewintpow_array(L *l, R* r, size_t n)
     return new_ptr;
 }
 
-template <typename L>
-void mxt_ewadd_scalar(L *l, double r, size_t n)
+template <typename L, typename N>
+void *mxt_ewadd_scalar(L *l, N r, size_t n)
 {
+    void *new_ptr = MX_ALLOC_N(N, n);
     for (size_t i = 0; i < n; i++) {
-        *(((L *)l) + i) += (L)r;
+        *(((N *)new_ptr) + i) = *(((L *)l) + i) + r;
     }
+    return new_ptr;
+}
+
+template <typename L, typename N>
+void *mxt_ewsub_scalar(L *l, N r, size_t n)
+{
+    void *new_ptr = MX_ALLOC_N(N, n);
+    for (size_t i = 0; i < n; i++) {
+        *(((N *)new_ptr) + i) = *(((L *)l) + i) - r;
+    }
+    return new_ptr;
+}
+
+template <typename L, typename N>
+void *mxt_ewmul_scalar(L *l, N r, size_t n)
+{
+    void *new_ptr = MX_ALLOC_N(N, n);
+    for (size_t i = 0; i < n; i++) {
+        *(((N *)new_ptr) + i) = *(((L *)l) + i) * r;
+    }
+    return new_ptr;
 }
 
 template <typename L>
-void mxt_ewsub_scalar(L *l, double r, size_t n)
+void *mxt_ewpow_intscalar(L *l, L r, size_t n)
 {
+    void *new_ptr = MX_ALLOC_N(L, n);
     for (size_t i = 0; i < n; i++) {
-        *(((L *)l) + i) -= (L)r;
+        *(((L *)new_ptr) + i) = (L)int_pow(*(((L *)l) + i), r);
     }
+    return new_ptr;
 }
 
 template <typename L>
-void mxt_ewmul_scalar(L *l, double r, size_t n)
+void *mxt_ewpow_dblscalar(L *l, double r, size_t n)
 {
+    void *new_ptr = MX_ALLOC_N(double, n);
     for (size_t i = 0; i < n; i++) {
-        *(((L *)l) + i) *= (L)r;
+        *(((double *)new_ptr) + i) = pow(*(((L *)l) + i), r);
     }
+    return new_ptr;
 }
 
-template <typename L>
-void mxt_ewintpow_scalar(L *l, int r, size_t n)
+template <typename T>
+void mxt_copy(T *src, T *dest, size_t n)
 {
     for (size_t i = 0; i < n; i++) {
-        *(((L *)l) + i) = (L)int_pow(*(((L *)l) + i), r);
-    }
-}
-
-template <typename L>
-void mxt_ewpow_scalar(L *l, double r, size_t n)
-{
-    for (size_t i = 0; i < n; i++) {
-        *(((L *)l) + i) = (L)pow(*(((L *)l) + i), r);
+        *(dest + i) = *(src + i);
     }
 }
 
@@ -147,12 +165,20 @@ double mxt_sum(T *p, size_t n)
 }
 
 template <typename T>
-void mxt_arange(T *p, size_t n, T start, T step)
+void mxt_linspace(T *p, size_t n, T start, T step)
 {
     T current = start;
     for (size_t i = 0; i < n; i++) {
         *(((T *)p) + i) = current;
         current += step;
+    }
+}
+
+template <typename T>
+void mxt_eye(T *p, size_t n)
+{
+    for (size_t i = 0; i < n; i++) {
+        *(((T *)p) + (i * n + i)) = 1;
     }
 }
 

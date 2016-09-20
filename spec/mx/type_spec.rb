@@ -1,23 +1,90 @@
 require 'spec_helper'
 
 describe MX do
-  describe 'multiplication' do
-    it do
-      dtype_sizes = { int8: 1, int16: 2, int32: 3, int64: 4, float32: 5, float64: 6 }
-      dtypes = dtype_sizes.keys
+  describe 'dtype checking' do
+    context 'operation between array and array' do
+      it 'has correct dtype after addition operation' do
+        DTYPES.each do |dtype1|
+          DTYPES.each do |dtype2|
+            new_mx = MX.arange(5, dtype: dtype1) + MX.arange(5, dtype: dtype2)
+            expected_dtype = DTYPES_PRIO[dtype1] > DTYPES_PRIO[dtype2] ? dtype1 : dtype2
+            expect(new_mx.dtype).to eq(expected_dtype)
+          end
+        end
+      end
 
-      dtypes.each do |dtype1|
-        dtypes.each do |dtype2|
-          mx1 = MX.arange(5, dtype: dtype1)
-          mx2 = MX.arange(5, dtype: dtype2)
+      it 'has correct dtype after subtraction operation' do
+        DTYPES.each do |dtype1|
+          DTYPES.each do |dtype2|
+            new_mx = MX.arange(5, dtype: dtype1) - MX.arange(5, dtype: dtype2)
+            expected_dtype = DTYPES_PRIO[dtype1] > DTYPES_PRIO[dtype2] ? dtype1 : dtype2
+            expect(new_mx.dtype).to eq(expected_dtype)
+          end
+        end
+      end
 
-          puts dtype1
-          puts dtype2
-          puts '---------'
-          new_mx = mx1 * mx2
-          expected_dtype = dtype_sizes[dtype1] > dtype_sizes[dtype2] ? dtype1 : dtype2
-          expect(new_mx.dtype).to eq(expected_dtype)
-          puts '========='
+      it 'has correct dtype after multiplication operation' do
+        DTYPES.each do |dtype1|
+          DTYPES.each do |dtype2|
+            new_mx = MX.arange(5, dtype: dtype1) * MX.arange(5, dtype: dtype2)
+            expected_dtype = DTYPES_PRIO[dtype1] > DTYPES_PRIO[dtype2] ? dtype1 : dtype2
+            expect(new_mx.dtype).to eq(expected_dtype)
+          end
+        end
+      end
+
+      it 'has correct dtype after power operation' do
+        DTYPES.each do |dtype1|
+          DTYPES_INT.each do |dtype2|
+            new_mx = MX.arange(5, dtype: dtype1) ** MX.arange(5, dtype: dtype2)
+            expect(new_mx.dtype).to eq(dtype1)
+          end
+          DTYPES_FLOAT.each do |dtype2|
+            new_mx = MX.arange(5, dtype: dtype1) ** MX.arange(5, dtype: dtype2)
+            expect(new_mx.dtype).to eq(:float64)
+          end
+        end
+      end
+    end
+
+    context 'operation between array and scalar' do
+      it 'has correct dtype after addition operation' do
+        DTYPES.each do |dtype1|
+          new_mx = MX.arange(5, dtype: dtype1) + 5
+          expect(new_mx.dtype).to eq(dtype1)
+
+          new_mx = MX.arange(5, dtype: dtype1) + 5.0
+          expect(new_mx.dtype).to eq(:float64)
+        end
+      end
+
+      it 'has correct dtype after subtraction operation' do
+        DTYPES.each do |dtype1|
+          new_mx = MX.arange(5, dtype: dtype1) - 5
+          expect(new_mx.dtype).to eq(dtype1)
+
+          new_mx = MX.arange(5, dtype: dtype1) - 5.0
+          expect(new_mx.dtype).to eq(:float64)
+        end
+      end
+
+      it 'has correct dtype after multiplication operation' do
+        DTYPES.each do |dtype1|
+          new_mx = MX.arange(5, dtype: dtype1) * 5
+          expect(new_mx.dtype).to eq(dtype1)
+
+          new_mx = MX.arange(5, dtype: dtype1) * 5.0
+          expect(new_mx.dtype).to eq(:float64)
+        end
+      end
+
+      it 'has correct dtype after multiplication operation' do
+        DTYPES.each do |dtype1|
+          new_mx = MX.arange(5, dtype: dtype1) ** 5
+          expect(new_mx.dtype).to eq(dtype1)
+
+          new_mx = MX.arange(5, dtype: dtype1) ** 5.0
+          expect(new_mx.dtype).to eq(:float64)
         end
       end
     end

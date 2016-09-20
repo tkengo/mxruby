@@ -13,18 +13,36 @@ MX.new
   :param opt: Options hash. The default value is nil.
   :type  date2: Hash
 
-  :rtype: Array
-  :return: [*gamb*, *phib*, *psib*, *epsa*] -- see below.
+  :return: mxarray
+
   :raise: TypeError
 
-  Returns
-    * *gamb* (Float) -- Fukushima-Williams angle :math:`\bar{\gamma}`
-    * *phib* (Float) -- Fukushima-Williams angle :math:`\bar{\phi}`
-    * *psib* (Float) -- Fukushima-Williams angle :math:`\bar{\psi}`
-    * *epsa* (Float) -- Fukushima-Williams angle :math:`\epsilon_A`
+  Options
+    * *dtype* -- data type. See also :doc:`/users_guide/data_type`
 
-  Example
-    .. code-block:: ruby
+Examples
+--------
 
-      Celes::pfw06(2450000.5, 5678.9)
-      #=> [5.567146520539624e-06, 0.40906694795782306, 0.002764904877386836, 0.409066897588741] 
+  It passes 1-dimention array.
+
+  .. code-block:: ruby
+
+    MX.new([1, 2, 3])
+    #=> [1.0, 2.0, 3.0]
+
+  .. code-block:: ruby
+
+    MX.new([1, 2, 3], dtype: :int64)
+    #=> [1, 2, 3]
+
+  It passes n-dimention array.
+
+  .. code-block:: ruby
+
+    MX.new([[1, 2, 3], [4, 5, 6]])
+    #=> [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+
+  .. code-block:: ruby
+
+    MX.new([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+    #=> [[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]

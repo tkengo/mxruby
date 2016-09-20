@@ -104,3 +104,15 @@ void mxx_copy_cast(MX *src, MX *dest, DTYPE new_dtype)
     mxx_copy_shape(src, dest);
     mxx_copy_cast_elptr(src, dest, new_dtype);
 }
+
+void mxx_copy_by_size(void *src, void *dest, size_t n, DTYPE dtype)
+{
+    switch (dtype) {
+        case DTYPE_INT8:    mxt_copy((int8_t  *)src, (int8_t  *)dest, n); break;
+        case DTYPE_INT16:   mxt_copy((int16_t *)src, (int16_t *)dest, n); break;
+        case DTYPE_INT32:   mxt_copy((int32_t *)src, (int32_t *)dest, n); break;
+        case DTYPE_INT64:   mxt_copy((int64_t *)src, (int64_t *)dest, n); break;
+        case DTYPE_FLOAT32: mxt_copy((float   *)src, (float   *)dest, n); break;
+        case DTYPE_FLOAT64: mxt_copy((double  *)src, (double  *)dest, n); break;
+    }
+}

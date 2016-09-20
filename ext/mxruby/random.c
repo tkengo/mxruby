@@ -74,7 +74,7 @@ static VALUE mx_random_rand(int argc, VALUE *argv, VALUE self) {
         return rb_float_new(mxx_random_xorshift1024(r));
     }
 
-    MX *mx = MX_INIT_D(shape, DTYPE_FLOAT64);
+    MX *mx = mxx_initialize(shape, DTYPE_FLOAT64);
     for (int i = 0; i < mx->size; i++) {
         *(double *)(mx->elptr + i * DTYPE_SIZES[mx->dtype]) = mxx_random_xorshift1024(r);
     }
@@ -93,7 +93,7 @@ static VALUE mx_random_randn(int argc, VALUE *argv, VALUE self)
         return rb_float_new(mxx_random_gaussian(r));
     }
 
-    MX *mx = MX_INIT_D(shape, DTYPE_FLOAT64);
+    MX *mx = mxx_initialize(shape, DTYPE_FLOAT64);
     for (int i = 0; i < mx->size; i++) {
         *(double *)(mx->elptr + i * DTYPE_SIZES[mx->dtype]) = mxx_random_gaussian(r);
     }

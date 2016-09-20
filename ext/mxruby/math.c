@@ -1,6 +1,6 @@
 #include "mx.h"
 
-double int_pow(double a, int b) {
+double int_pow(double a, long b) {
     if (a == 0) {
         return 0;
     }

@@ -1,4 +1,45 @@
 {% extends "!layout.html" %}
 {% block linktags %}
 <link href="http://fonts.googleapis.com/css?family=Open+Sans:300,400,700" rel="stylesheet" type="text/css">
+<link href="https://file.myfontastic.com/ZbQK3HtvooHqxPbGKfKEyK/icons.css" rel="stylesheet">
 {% endblock %}
+{%- block sidebar2 %}
+<div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+  <div class="sphinxsidebarwrapper">
+    <h3><a href="#">Table of Contents</a></h3>
+    {{ toctree(maxdepth=1, collapse=False, includehidden=True) }}
+  </div>
+</div>
+{%- endblock sidebar2 %}
+
+{%- block header %}
+{%- endblock header %}
+{%- block document %}
+{# <div class="document-outer"> #}
+  <div id="header">
+    <p><a href="/">MxRuby Documentation</a></p>
+  </div>
+
+  {{ super() }}
+
+  <div id="footer">
+    ©2016, tkengo.  |
+    Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.6</a>
+    &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a> |
+    <a href="_sources/index.txt" rel="nofollow">Page source</a>
+  </div>
+{# </div> #}
+
+{# <div style="width:100%;position:absolute;bottom:0"> #}
+  {# <div style="width:1020px;position:relative;margin:0 auto;"> #}
+  {#   <div class="footer"> #}
+  {#     ©2016, tkengo.  | #}
+  {#     Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.6</a> #}
+  {#     &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a> | #}
+  {#     <a href="_sources/index.txt" rel="nofollow">Page source</a> #}
+  {#   </div> #}
+  {# </div> #}
+{# </div> #}
+{%- endblock document %}
+{%- block footer %}
+{%- endblock footer %}

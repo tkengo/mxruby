@@ -271,6 +271,29 @@ static VALUE mx_set(int argc, VALUE *argv, VALUE self)
     return self;
 }
 
+static void mxs_slice(MX *src, MX *dest, size_t depth, size_t pos, VALUE idx, size_t idx_len, size_t copy_size, size_t *copy_count)
+{
+    if (depth == idx_len) {
+        mxx_copy_by_size(src->elptr + pos * DTYPE_SIZES[src->dtype], dest->elptr + *copy_count * DTYPE_SIZES[dest->dtype], copy_size, dest->dtype);
+        *copy_count += copy_size;
+    } else {
+        size_t skip = 1;
+        for (int i = depth + 1; i < src->dim; i++) {
+            skip *= src->shape[i];
+        }
+
+        long beg, len;
+        VALUE v = RARRAY_AREF(idx, depth);
+        if (FIXNUM_P(v)) {
+            mxs_slice(src, dest, depth + 1, pos + FIX2INT(v) * skip, idx, idx_len, copy_size, copy_count);
+        } else if (rb_range_beg_len(v, &beg, &len, src->shape[depth], 0) == Qtrue) {
+            for (size_t i = 0; i < len; i++) {
+                mxs_slice(src, dest, depth + 1, pos + (beg + i) * skip, idx, idx_len, copy_size, copy_count);
+            }
+        }
+    }
+}
+
 static VALUE mx_get(int argc, VALUE *argv, VALUE self)
 {
     VALUE idx;
@@ -278,17 +301,119 @@ static VALUE mx_get(int argc, VALUE *argv, VALUE self)
     MX *mx = MX_DATA_PTR(self);
 
     size_t idx_len = RARRAY_LEN(idx);
-    size_t pos = 0;
-    for (int i = 0; i < idx_len; i++) {
-        size_t skip = 1;
-        for (int j = i + 1; j < idx_len; j++) {
-            skip *= mx->shape[j];
+    if (idx_len > mx->dim) {
+        return Qnil;
+    } else if (idx_len == mx->dim) {
+        size_t pos = 0;
+        for (int i = 0; i < idx_len; i++) {
+            VALUE v = RARRAY_AREF(idx, i);
+            if (FIXNUM_P(v)) {
+                size_t skip = 1;
+                for (int j = i + 1; j < mx->dim; j++) {
+                    skip *= mx->shape[j];
+                }
+
+                pos += FIX2INT(v) * skip;
+            }
         }
 
-        pos += FIX2INT(RARRAY_AREF(idx, i)) * skip;
+        if (pos >= mx->size) {
+            return Qnil;
+        } else {
+            return mxx_c_to_rb((char *)mx->elptr + pos * DTYPE_SIZES[mx->dtype], mx->dtype);
+        }
+    } else {
+        size_t dsize = DTYPE_SIZES[mx->dtype];
+        size_t new_dim = mx->dim - idx_len;
+        VALUE *new_shape = MX_ALLOC_N(VALUE, new_dim);
+
+        for (size_t i = new_dim, j = 0; i > 0; i--, j++) {
+            new_shape[j] = INT2FIX(mx->shape[j + idx_len]);
+        }
+
+        MX *new_mx = MX_ALLOC(MX);
+        mxx_initialize_shape(new_mx, rb_ary_new4(new_dim, new_shape));
+        new_mx->dtype = mx->dtype;
+        new_mx->elptr = MX_ALLOC_N(char, new_mx->size * DTYPE_SIZES[new_mx->dtype]);
+        MX_FREE(new_shape);
+
+        size_t copy_size = 1;
+        for (size_t i = idx_len; i < mx->dim; i++) {
+            copy_size *= mx->shape[i];
+        }
+
+        size_t copy_count = 0;
+        mxs_slice(mx, new_mx, 0, 0, idx, idx_len, copy_size, &copy_count);
+        return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
+
+        size_t size = 1;
+        size_t loop = 1;
+        long beg, len;
+        long *begs = MX_ALLOC_N(long, idx_len);
+        long *lens = MX_ALLOC_N(long, idx_len);
+        for (size_t i = 0; i < idx_len; i++) {
+            VALUE v = RARRAY_AREF(idx, i);
+            if (FIXNUM_P(v)) {
+                begs[i] = FIX2INT(v);
+                lens[i] = 1;
+            } else if (rb_range_beg_len(v, &beg, &len, mx->shape[i], 0) == Qtrue) {
+                begs[i] = beg;
+                lens[i] = len;
+                loop *= len;
+            }
+        }
+
+        for (size_t i = idx_len; i < mx->dim; i++) {
+            size *= mx->shape[i];
+        }
+
+        size_t dest_pos = 0;
+        for (size_t i = 0; i < idx_len; i++) {
+            for (size_t j = 0; j < lens[i]; j++) {
+                size_t src_pos = begs[i] + j;
+                mxx_copy_by_size(mx->elptr + src_pos * dsize, new_mx->elptr + dest_pos * dsize, size, new_mx->dtype);
+            }
+        }
+
+        return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
+
+        size_t pos = 0;
+        for (size_t i = 0; i < idx_len; i++) {
+            VALUE v = RARRAY_AREF(idx, i);
+            if (FIXNUM_P(v)) {
+                size_t skip = 1;
+                for (int j = i + 1; j < mx->dim; j++) {
+                    skip *= mx->shape[j];
+                }
+
+                pos += FIX2INT(v) * skip;
+            } else if (rb_range_beg_len(v, &beg, &len, mx->shape[i], 0) == Qtrue) {
+                VALUE *new_shape = MX_ALLOC_N(VALUE, mx->dim);
+                new_shape[0] = INT2FIX(len);
+                new_shape[1] = INT2FIX(mx->shape[1]);
+
+                MX *new_mx = MX_ALLOC(MX);
+                mxx_initialize_shape(new_mx, rb_ary_new4(mx->dim, new_shape));
+                new_mx->dtype = mx->dtype;
+                new_mx->elptr = MX_ALLOC_N(char, new_mx->size * DTYPE_SIZES[new_mx->dtype]);
+                mxx_copy_by_size(mx->elptr + beg * dsize, new_mx->elptr, new_mx->size, new_mx->dtype);
+
+                MX_FREE(new_shape);
+                return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
+            }
+        }
+
+        if (mx->size < pos + new_mx->size) {
+            return Qnil;
+        }
+
+        new_mx->elptr = MX_ALLOC_N(char, new_mx->size * dsize);
+        mxx_copy_by_size(mx->elptr + pos * dsize, new_mx->elptr, new_mx->size, new_mx->dtype);
+
+        return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
     }
 
-    return mxx_c_to_rb((char *)mx->elptr + pos * DTYPE_SIZES[mx->dtype], mx->dtype);
+    return self;
 }
 
 static VALUE mx_ewadd(VALUE self, VALUE other)
@@ -303,10 +428,11 @@ static VALUE mx_ewadd(VALUE self, VALUE other)
         }
         mxx_ewadd_array(mx, other_mx, new_mx);
     } else {
-        DTYPE new_dtype = TYPE(other) == T_FLOAT ? DTYPE_FLOAT64 : mx->dtype;
-        double v = NUM2DBL(other);
-        mxx_copy_cast(mx, new_mx, new_dtype);
-        mxx_ewadd_scalar(new_mx, v);
+        if (TYPE(other) == T_FLOAT) {
+            mxx_ewadd_dblscalar(mx, NUM2DBL(other), new_mx);
+        } else {
+            mxx_ewadd_intscalar(mx, FIX2INT(other), new_mx);
+        }
     }
 
     return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
@@ -324,10 +450,11 @@ static VALUE mx_ewsub(VALUE self, VALUE other)
         }
         mxx_ewsub_array(mx, other_mx, new_mx);
     } else {
-        DTYPE new_dtype = TYPE(other) == T_FLOAT ? DTYPE_FLOAT64 : mx->dtype;
-        double v = NUM2DBL(other);
-        mxx_copy_cast(mx, new_mx, new_dtype);
-        mxx_ewsub_scalar(new_mx, v);
+        if (TYPE(other) == T_FLOAT) {
+            mxx_ewsub_dblscalar(mx, NUM2DBL(other), new_mx);
+        } else {
+            mxx_ewsub_intscalar(mx, FIX2INT(other), new_mx);
+        }
     }
 
     return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
@@ -345,10 +472,11 @@ static VALUE mx_ewmul(VALUE self, VALUE other)
         }
         mxx_ewmul_array(mx, other_mx, new_mx);
     } else {
-        DTYPE new_dtype = TYPE(other) == T_FLOAT ? DTYPE_FLOAT64 : mx->dtype;
-        double v = NUM2DBL(other);
-        mxx_copy_cast(mx, new_mx, new_dtype);
-        mxx_ewmul_scalar(new_mx, v);
+        if (TYPE(other) == T_FLOAT) {
+            mxx_ewmul_dblscalar(mx, NUM2DBL(other), new_mx);
+        } else {
+            mxx_ewmul_intscalar(mx, FIX2INT(other), new_mx);
+        }
     }
 
     return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
@@ -372,15 +500,41 @@ static VALUE mx_ewpow(VALUE self, VALUE other)
         }
     } else {
         if (TYPE(other) == T_FIXNUM) {
-            mxx_copy(mx, new_mx);
-            mxx_ewintpow_scalar(new_mx, FIX2INT(other));
+            mxx_ewpow_intscalar(mx, FIX2INT(other), new_mx);
         } else {
-            mxx_copy_cast(mx, new_mx, DTYPE_FLOAT64);
-            mxx_ewpow_scalar(new_mx, NUM2DBL(other));
+            mxx_ewpow_dblscalar(mx, NUM2DBL(other), new_mx);
         }
     }
 
     return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
+}
+
+static VALUE mx_sing_eye(int argc, VALUE *argv, VALUE klass)
+{
+    int row, col, dim = 2;
+    VALUE rb_row, rb_col, rb_opt;
+    rb_scan_args(argc, argv, "11:", &rb_row, &rb_col, &rb_opt);
+    DTYPE dtype = mxx_dtype_from_opt(rb_opt, DTYPE_FLOAT64);
+
+    VALUE *shape = MX_ALLOC_N(VALUE, dim);
+    shape[0] = rb_row;
+    if (NIL_P(rb_col)) {
+        shape[1] = rb_row;
+    } else {
+        shape[1] = rb_col;
+    }
+    int count = MX_MIN(FIX2INT(shape[0]), FIX2INT(shape[1]));
+    if (count < 0) {
+        MX_FREE(shape);
+        rb_raise(rb_eArgError, "Negative dimensions are not allowed");
+    }
+
+    MX *mx = mxx_initialize(rb_ary_new4(dim, shape), dtype);
+
+    memset(mx->elptr, 0x00, mx->size * DTYPE_SIZES[mx->dtype]);
+    mxx_eye(mx, count);
+    MX_FREE(shape);
+    return Data_Wrap_Struct(klass, 0, mxx_free, mx);;
 }
 
 static VALUE mx_sing_arange(int argc, VALUE *argv, VALUE klass)
@@ -388,9 +542,9 @@ static VALUE mx_sing_arange(int argc, VALUE *argv, VALUE klass)
     double start, stop, step;
     int start_type, stop_type, step_type;
     VALUE rb_start, rb_stop, rb_step, rb_opt;
+    DTYPE dtype;
 
     rb_scan_args(argc, argv, "12:", &rb_start, &rb_stop, &rb_step, &rb_opt);
-    DTYPE dtype = mxx_dtype_from_opt(rb_opt);
 
     if (NIL_P(rb_stop)) {
         start      = 0;
@@ -414,48 +568,43 @@ static VALUE mx_sing_arange(int argc, VALUE *argv, VALUE klass)
     } else if (step < 0 && start < stop) {
         rb_raise(rb_eArgError, "Confuse arguments order. start < stop.");
     } else if (start == stop) {
-        MX *mx = MX_INIT_D(INT2FIX(0), DTYPE_INT64);
+        MX *mx = mxx_initialize(INT2FIX(0), DTYPE_INT64);
         return Data_Wrap_Struct(klass, 0, mxx_free, mx);
     }
 
-    if (dtype == DTYPE_UNKNOWN) {
-        if (step_type == T_FIXNUM && start_type == T_FIXNUM && stop_type == T_FIXNUM) {
-            dtype = DTYPE_INT64;
-        } else {
-            dtype = DTYPE_FLOAT64;
-        }
+    // T_FIXNUM => FIXNUM_P
+    if (step_type == T_FIXNUM && start_type == T_FIXNUM && stop_type == T_FIXNUM) {
+        dtype = DTYPE_INT64;
+    } else {
+        dtype = DTYPE_FLOAT64;
     }
 
     size_t shape = (size_t)fabs(ceil((stop - start) / step));
-    MX *mx = MX_INIT_D(INT2FIX(shape), dtype);
-    mxx_arange(mx, start, step);
+    MX *mx = mxx_initialize(INT2FIX(shape), mxx_dtype_from_opt(rb_opt, dtype));
+    mxx_linspace(mx, start, step);
 
     return Data_Wrap_Struct(klass, 0, mxx_free, mx);
 }
 
 static VALUE mx_sing_linspace(int argc, VALUE *argv, VALUE klass)
 {
-    VALUE rb_start, rb_stop, rb_shape, rb_opt;
-    rb_scan_args(argc, argv, "21:", &rb_start, &rb_stop, &rb_shape, &rb_opt);
+    VALUE rb_start, rb_stop, rb_num, rb_opt;
+    rb_scan_args(argc, argv, "21:", &rb_start, &rb_stop, &rb_num, &rb_opt);
 
-    if (NIL_P(rb_shape)) {
-        rb_shape = INT2FIX(100);
+    if (NIL_P(rb_num)) {
+        rb_num = INT2FIX(100);
     }
 
-    if (FIX2INT(rb_shape) < 0) {
+    if (FIX2INT(rb_num) < 0) {
         rb_raise(rb_eArgError, "Cannot specify negative number to the shape argument");
     }
 
-    MX *mx = MX_INIT_D(rb_shape, DTYPE_FLOAT64);
+    DTYPE dtype = mxx_dtype_from_opt(rb_opt, DTYPE_FLOAT64);
+    MX *mx = mxx_initialize(rb_num, dtype);
     double start = NUM2DBL(rb_start);
     double stop  = NUM2DBL(rb_stop);
     double step  = (stop - start) * (1.0 / (double)(mx->size - 1));
-
-    double current = start;
-    for (int i = 0; i < mx->size; i++) {
-        *(((double *)mx->elptr) + i) = current;
-        current += step;
-    }
+    mxx_linspace(mx, start, step);
 
     return Data_Wrap_Struct(klass, 0, mxx_free, mx);
 }
@@ -492,6 +641,7 @@ void Init_mxruby()
     rb_define_method(rb_cMx, "*", mx_ewmul, 1);
     rb_define_method(rb_cMx, "**", mx_ewpow, 1);
 
+    rb_define_singleton_method(rb_cMx, "eye", mx_sing_eye, -1);
     rb_define_singleton_method(rb_cMx, "arange", mx_sing_arange, -1);
     rb_define_singleton_method(rb_cMx, "linspace", mx_sing_linspace, -1);
 

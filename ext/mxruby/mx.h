@@ -8,6 +8,7 @@
 #define UINT64_MIN 5.421010862427522e-20
 #define DBL_IS_INT(dbl) (dbl - floor(dbl) <= DBL_MIN)
 #define MX_MAX(a,b) ((a) > (b) ? (a) : (b))
+#define MX_MIN(a,b) ((a) < (b) ? (a) : (b))
 
 #define NUM_DTYPE 6
 
@@ -37,8 +38,6 @@
 #define MX_DATA_DIM(mx) (MX_DATA_PTR(mx)->dim)
 #define MX_DATA_SIZE(mx) (MX_DATA_PTR(mx)->size)
 
-#define MX_INIT(shape) mxx_initialize(shape, DEFAULT_DTYPE)
-#define MX_INIT_D(shape, dtype) mxx_initialize(shape, dtype)
 #define IS_MX(v) (CLASS_OF(v) == rb_cMx)
 
 typedef short DTYPE;
@@ -108,24 +107,29 @@ extern void mxx_ewsub_array(MX *l, MX *r, MX *out);
 extern void mxx_ewmul_array(MX *l, MX *r, MX *out);
 extern void mxx_ewpow_array(MX *l, MX *r, MX *out);
 extern void mxx_ewintpow_array(MX *l, MX *r, MX *out);
-extern void mxx_ewadd_scalar(MX *l, double r);
-extern void mxx_ewsub_scalar(MX *l, double r);
-extern void mxx_ewmul_scalar(MX *l, double r);
-extern void mxx_ewpow_scalar(MX *l, double r);
-extern void mxx_ewintpow_scalar(MX *l, int r);
+extern void mxx_ewadd_intscalar(MX *l, long r, MX *out);
+extern void mxx_ewadd_dblscalar(MX *l, double r, MX *out);
+extern void mxx_ewsub_intscalar(MX *l, long r, MX *out);
+extern void mxx_ewsub_dblscalar(MX *l, double r, MX *out);
+extern void mxx_ewmul_intscalar(MX *l, long r, MX *out);
+extern void mxx_ewmul_dblscalar(MX *l, double r, MX *out);
+extern void mxx_ewpow_intscalar(MX *l, long r, MX *out);
+extern void mxx_ewpow_dblscalar(MX *l, double r, MX *out);
+extern void mxx_copy_by_size(void *src, void *dest, size_t n, DTYPE dtype);
 extern double mxx_sum(MX *mx);
-extern void mxx_arange(MX *mx, double start, double step);
+extern void mxx_linspace(MX *mx, double start, double step);
+extern void mxx_eye(MX *mx, size_t n);
 
 /**
  * Defined in math.c
  */
-extern double int_pow(double a, int b);
+extern double int_pow(double a, long b);
 
 /**
  * Defined in util.c
  */
 extern DTYPE mxx_dtype_from_symbol(VALUE dtype);
-extern DTYPE mxx_dtype_from_opt(VALUE opt);
+extern DTYPE mxx_dtype_from_opt(VALUE opt, DTYPE default_dtype);
 extern bool mxx_is_same_shape(MX *m1, MX *m2);
 extern void mxx_rb_to_c(void *p, DTYPE dtype, VALUE v);
 extern VALUE mxx_c_to_rb(void *p, DTYPE dtype);

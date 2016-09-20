@@ -1,17 +1,128 @@
+html, body {
+  height: 100%;
+}
+
 html, body, header, footer, section, nav, h1, h2, ul, li, p, pre {
   margin: 0;
   padding: 0;
 }
 
 body, div, ul, li, p, div.sphinxsidebar h3, div.sphinxsidebar h4 {
-  color: #ffffff;
+  color: #222222;
   font-family: 'Open Sans';
   font-weight: 300;
   font-size: 16px;
 }
 
-code {
+#header {
+  background-color: #3A3449;
+  height: 90px;
+  position: relative;
+  width: 100%;
+  z-index: 5;
+}
+
+#header p {
+  padding-left: 30px;
+  line-height: 90px;
+  margin: 0 auto;
+  font-size: 40px;
   color: #ffffff;
+  font-weight: 700;
+}
+
+div.document {
+  min-height: 100%;
+  position: relative;
+  width: 100%;
+  margin-top: 0;
+}
+
+div.documentwrapper {
+  float: none;
+  padding-bottom: 40px;
+}
+
+#footer {
+  height: 40px;
+  line-height: 40px;
+  margin: 0 50px 0 250px;
+  position: absolute;
+  right: 20px;
+  bottom: 0;
+}
+
+div.sphinxsidebar {
+  border-right: solid 1px #dddddd;
+  height: 100%;
+  width: 250px;
+  position: absolute;
+  top: 90px;
+  float: none;
+  margin-left: 0;
+  margin-top: -90px;
+  z-index: 3;
+}
+
+div.bodywrapper {
+  border-left: solid 1px #ddd;
+  margin-left: 250px;
+}
+
+div.bodywrapper {
+  margin-top: 20px;
+}
+div.sphinxsidebarwrapper {
+  margin-top: 90px;
+  padding: 0;
+}
+
+div.sphinxsidebarwrapper h3 {
+  background-color: #eaeaea;
+  padding: 10px 0 10px 20px;
+}
+
+div.sphinxsidebarwrapper ul {
+  padding-left: 20px;
+}
+
+div.sphinxsidebarwrapper li.toctree-l1 {
+  font-size: 12px;
+  line-height: 200%;
+}
+
+div.sphinxsidebarwrapper li.toctree-l1 a:before {
+  font-family: "untitled-font-1" !important;
+  font-size: 12px;
+  content: "\61";
+}
+
+div.body h1, div.body h2, div.body h3, div.body h4, div.body h5, div.body h6 {
+  font-family: 'Open Sans';
+  font-weight: 700;
+}
+
+div.body h1 {
+  border-bottom: dashed 1px #525252;
+  padding-bottom: 4px;
+  font-size: 28px;
+  color: #c73d3d;
+}
+
+div.body h2 {
+  font-size: 22px;
+}
+
+#header p a, #header p a:visited, #header p a:hover {
+  color: #ffffff;
+  font-size: 40px;
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+code {
+  color: #222222;
   font-weight: 300;
 }
 
@@ -22,28 +133,46 @@ dl.function > dt {
 
 tt.descname, tt.descclassname, code.descname, code.descclassname,
 dl.function dt em, dl.function span.sig-paren {
-  color: #ffffff;
+  color: #222222;
   font-style: normal !important;
   font-family: 'Consolas', 'Menlo', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
   font-size: 20px;
   font-weight: normal;
 }
 
+dl.function table.field-list {
+  margin-top: 16px;
+}
+dl.function table.field-list td ul {
+  list-style: none;
+  padding: 0;
+}
+dl.function table.field-list td.field-body ul li strong {
+  font-weight: normal;
+  color: #7638d2;
+}
+dl.function table.field-list td ul li {
+  padding-bottom: 4px;
+}
+dl.function table.field-list p {
+  margin-bottom: 4px;
+}
+
 body, div.body {
-  background: #3A3449;
+  background: #ffffff;
 }
 
 a,           a:visited,
 a.reference, a.reference:visited,
 div.sphinxsidebar a, div.sphinxsidebar a:visited,
 div.sphinxsidebar a:visited {
-  color: #ffd474;
+  color: #ef3101;
   cursor: pointer;
   text-decoration: none;
   border-bottom-width: 0;
 }
 a:hover, div.sphinxsidebar a:hover, a.reference:hover {
-  color: #ffd474;
+  color: #ef3101;
   text-decoration: underline;
   border-bottom-width: 0;
 }
@@ -51,19 +180,31 @@ a:hover, div.sphinxsidebar a:hover, a.reference:hover {
 div.sphinxsidebar h3 a,
 div.sphinxsidebar h3 a:visited,
 div.sphinxsidebar h3 a:hover {
-  color: #ffffff !important;
+  color: #222222 !important;
   text-decoration: none !important;
 }
 
-div.body h1, div.body h2, div.body h3, div.body h4, div.body h5, div.body h6 {
-  font-family: 'Open Sans';
-  font-weight: 700;
-}
-
-div.document {
-  width: 1020px;
-}
-
 h1 {
-  color: #ffe5b6;
+  color: #333333;
+}
+
+div.footer {
+  width: 1020px;
+  margin-bottom: 6px;
+}
+
+table.method-list, table.method-list td, table.method-list tr {
+  border-width: 0;
+  -webkit-box-shadow: 0 0 0 #fff;
+  box-shadow: 0 0 0 #fff;
+  white-space: nowrap;
+  padding: 0;
+  line-height: 160%;
+}
+
+div.highlight-ruby {
+  margin: 8px 0;
+}
+div.highlight-ruby pre {
+  padding: 6px 8px;
 }
