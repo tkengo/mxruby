@@ -1,4 +1,4 @@
-class Fixnum
+class Integer
   alias_method :old_add, :+
   alias_method :old_mul, :*
 

@@ -9,7 +9,7 @@
  * interpreter by compiling it.
  */
 #include <ruby.h>
-#include <cblas.h>
+/* #include <cblas.h> */
 #include "mx.h"
 
 /*
@@ -138,13 +138,13 @@ static VALUE mx_dot(VALUE self, VALUE target)
     MX *mx = MX_DATA_PTR(self);
     void *c = MX_ALLOC_N(char, mx->shape[0] * mx->shape[1] * DTYPE_SIZES[mx->dtype]);
 
-    cblas_sgemm(
-            CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            N, N, N,
-            1, mx->elptr, N,
-            MX_DATA_ELPTR(target), N,
-            0, c, N
-            );
+    /* cblas_sgemm( */
+    /*         CblasRowMajor, CblasNoTrans, CblasNoTrans, */
+    /*         N, N, N, */
+    /*         1, mx->elptr, N, */
+    /*         MX_DATA_ELPTR(target), N, */
+    /*         0, c, N */
+    /*         ); */
 
     MX_FREE(mx->elptr);
     mx->elptr = c;
@@ -271,11 +271,28 @@ static VALUE mx_set(int argc, VALUE *argv, VALUE self)
     return self;
 }
 
-static void mxs_slice(MX *src, MX *dest, size_t depth, size_t pos, VALUE idx, size_t idx_len, size_t copy_size, size_t *copy_count)
+/**
+ * Slice the `src` matrix, then the sliced matrix will be stored into the dest matrix.
+ * @params src   Source matrix to be sliced
+ * @params dest  Destination matrix
+ * @params src_pos   Copy start position in the source matrix
+ * @params count Copy element count
+ * @params depth ?
+ * @params idx
+ * @params idx_len
+ */
+static void _mxs_slice(MX *src, MX *dest, VALUE idx, size_t idx_len, int depth, size_t size,
+        size_t src_pos, size_t *dest_pos)
 {
     if (depth == idx_len) {
-        mxx_copy_by_size(src->elptr + pos * DTYPE_SIZES[src->dtype], dest->elptr + *copy_count * DTYPE_SIZES[dest->dtype], copy_size, dest->dtype);
-        *copy_count += copy_size;
+        mxx_copy_by_size(
+            MX_DATA_POS(src,  src_pos),
+            MX_DATA_POS(dest, *dest_pos),
+            size,
+            dest->dtype
+        );
+
+        *dest_pos += size;
     } else {
         size_t skip = 1;
         for (int i = depth + 1; i < src->dim; i++) {
@@ -285,13 +302,87 @@ static void mxs_slice(MX *src, MX *dest, size_t depth, size_t pos, VALUE idx, si
         long beg, len;
         VALUE v = RARRAY_AREF(idx, depth);
         if (FIXNUM_P(v)) {
-            mxs_slice(src, dest, depth + 1, pos + FIX2INT(v) * skip, idx, idx_len, copy_size, copy_count);
+            _mxs_slice(src, dest, idx, idx_len, depth + 1, skip, src_pos + FIX2INT(v) * skip, dest_pos);
         } else if (rb_range_beg_len(v, &beg, &len, src->shape[depth], 0) == Qtrue) {
-            for (size_t i = 0; i < len; i++) {
-                mxs_slice(src, dest, depth + 1, pos + (beg + i) * skip, idx, idx_len, copy_size, copy_count);
+            for (long i = 0; i < len; i++) {
+                _mxs_slice(src, dest, idx, idx_len, depth + 1, skip, src_pos + (beg + i) * skip, dest_pos);
             }
         }
     }
+}
+
+static MX *mxs_slice(MX *src, VALUE idx, size_t idx_len)
+{
+    /**
+     * mx = [ [ [1,1], [2,2], [3,3], [4,4] ],
+     *        [ [0,0], [0,0], [0,0], [0,0] ],
+     *        [ [5,5], [6,6], [7,7], [8,8] ] ], shape = [3, 4, 2]
+     *
+     * mx[0]    =   [ [1,1], [2,2], [3,3], [4,4] ],   shape = [4, 2]
+     * mx[0..1] = [ [ [1,1], [2,2], [3,3], [4,4] ],
+     *              [ [0,0], [0,0], [0,0], [0,0] ] ], shape = [2, 4, 2]
+     *
+     * mx[0, 0..1] = [ [1,1], [2,2] ],   shape = [2, 2]
+     *
+     * mx[0..1, 0]    = [ [1,1],
+     *                    [0,0] ], shape = [2, 2]
+     * mx[0..1, 0..1] = [ [ [1,1], [2,2] ],
+     *                    [ [0,0], [0,0] ] ], shape = [2, 2, 2]
+     *
+     * mx[0..1, 0..1, 0] = [ [ 1, 2 ],
+     *                       [ 0, 0 ] ], shape = [2, 2]
+     *
+     * mx = [ [1, 2, 3],
+     *        [4, 5, 6],
+     *        [7, 8, 9] ], shape = [3, 3]
+     *
+     * mx[0]         =   [1, 2, 3],   shape = [3]
+     * mx[0..1]      = [ [1, 2, 3]
+     *                   [4, 5, 6] ], shape = [2, 3]
+     * mx[0..1, 0]   = [ 1
+     *                   4 ],         shape = [2, 1]
+     * mx[0..1, [0]] = [ [1]
+       *                 [4] ],       shape = [2, 1]
+     *
+     * mx[0, 0]    =     1,  shape = nil
+     * mx[0, 0..1] = [1, 2], shape = [2]
+     *
+     * mx[[0]]    = [ [1, 2, 3] ], shape = [1, 3]
+     * mx[0..0]   = [ [1, 2, 3]
+     *                [4, 5, 6] ], shape = [2, 3]
+     * mx[[0, 1]] = [ [1, 2, 3]
+     *                [4, 5, 6] ], shape = [2, 3]
+     *
+     * 引数がFIXNUMだったらdimが1個減る
+     * 引数がrangeまたはarrayだったら次元は減らずにshapeがその長さになる
+     */
+    long beg, len;
+    size_t new_dim = 0;
+    size_t *tmp = MX_ALLOC_N(size_t, src->dim);
+    for (int i = 0; i < src->dim; i++) {
+        if (i < idx_len) {
+            VALUE v = RARRAY_AREF(idx, i);
+            if (rb_range_beg_len(v, &beg, &len, src->shape[i], 0) == Qtrue) {
+                tmp[new_dim++] = len;
+            }
+        } else {
+            tmp[new_dim++] = src->shape[i];
+        }
+    }
+
+    VALUE *new_shape = MX_ALLOC_N(VALUE, new_dim);
+    for (int i = 0; i < new_dim; i++) {
+        new_shape[i] = INT2FIX(tmp[i]);
+    }
+
+    MX *new_mx = MX_ALLOC(MX);
+    mxx_initialize_shape(new_mx, rb_ary_new4(new_dim, new_shape));
+    new_mx->dtype = src->dtype;
+    new_mx->elptr = MX_ALLOC_N(char, new_mx->size * DTYPE_SIZES[new_mx->dtype]);
+    MX_FREE(tmp);
+
+    size_t dest_pos = 0;
+    _mxs_slice(src, new_mx, idx, idx_len, 0, 0, 0, &dest_pos);
 }
 
 static VALUE mx_get(int argc, VALUE *argv, VALUE self)
@@ -303,115 +394,10 @@ static VALUE mx_get(int argc, VALUE *argv, VALUE self)
     size_t idx_len = RARRAY_LEN(idx);
     if (idx_len > mx->dim) {
         return Qnil;
-    } else if (idx_len == mx->dim) {
-        size_t pos = 0;
-        for (int i = 0; i < idx_len; i++) {
-            VALUE v = RARRAY_AREF(idx, i);
-            if (FIXNUM_P(v)) {
-                size_t skip = 1;
-                for (int j = i + 1; j < mx->dim; j++) {
-                    skip *= mx->shape[j];
-                }
-
-                pos += FIX2INT(v) * skip;
-            }
-        }
-
-        if (pos >= mx->size) {
-            return Qnil;
-        } else {
-            return mxx_c_to_rb((char *)mx->elptr + pos * DTYPE_SIZES[mx->dtype], mx->dtype);
-        }
-    } else {
-        size_t dsize = DTYPE_SIZES[mx->dtype];
-        size_t new_dim = mx->dim - idx_len;
-        VALUE *new_shape = MX_ALLOC_N(VALUE, new_dim);
-
-        for (size_t i = new_dim, j = 0; i > 0; i--, j++) {
-            new_shape[j] = INT2FIX(mx->shape[j + idx_len]);
-        }
-
-        MX *new_mx = MX_ALLOC(MX);
-        mxx_initialize_shape(new_mx, rb_ary_new4(new_dim, new_shape));
-        new_mx->dtype = mx->dtype;
-        new_mx->elptr = MX_ALLOC_N(char, new_mx->size * DTYPE_SIZES[new_mx->dtype]);
-        MX_FREE(new_shape);
-
-        size_t copy_size = 1;
-        for (size_t i = idx_len; i < mx->dim; i++) {
-            copy_size *= mx->shape[i];
-        }
-
-        size_t copy_count = 0;
-        mxs_slice(mx, new_mx, 0, 0, idx, idx_len, copy_size, &copy_count);
-        return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
-
-        size_t size = 1;
-        size_t loop = 1;
-        long beg, len;
-        long *begs = MX_ALLOC_N(long, idx_len);
-        long *lens = MX_ALLOC_N(long, idx_len);
-        for (size_t i = 0; i < idx_len; i++) {
-            VALUE v = RARRAY_AREF(idx, i);
-            if (FIXNUM_P(v)) {
-                begs[i] = FIX2INT(v);
-                lens[i] = 1;
-            } else if (rb_range_beg_len(v, &beg, &len, mx->shape[i], 0) == Qtrue) {
-                begs[i] = beg;
-                lens[i] = len;
-                loop *= len;
-            }
-        }
-
-        for (size_t i = idx_len; i < mx->dim; i++) {
-            size *= mx->shape[i];
-        }
-
-        size_t dest_pos = 0;
-        for (size_t i = 0; i < idx_len; i++) {
-            for (size_t j = 0; j < lens[i]; j++) {
-                size_t src_pos = begs[i] + j;
-                mxx_copy_by_size(mx->elptr + src_pos * dsize, new_mx->elptr + dest_pos * dsize, size, new_mx->dtype);
-            }
-        }
-
-        return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
-
-        size_t pos = 0;
-        for (size_t i = 0; i < idx_len; i++) {
-            VALUE v = RARRAY_AREF(idx, i);
-            if (FIXNUM_P(v)) {
-                size_t skip = 1;
-                for (int j = i + 1; j < mx->dim; j++) {
-                    skip *= mx->shape[j];
-                }
-
-                pos += FIX2INT(v) * skip;
-            } else if (rb_range_beg_len(v, &beg, &len, mx->shape[i], 0) == Qtrue) {
-                VALUE *new_shape = MX_ALLOC_N(VALUE, mx->dim);
-                new_shape[0] = INT2FIX(len);
-                new_shape[1] = INT2FIX(mx->shape[1]);
-
-                MX *new_mx = MX_ALLOC(MX);
-                mxx_initialize_shape(new_mx, rb_ary_new4(mx->dim, new_shape));
-                new_mx->dtype = mx->dtype;
-                new_mx->elptr = MX_ALLOC_N(char, new_mx->size * DTYPE_SIZES[new_mx->dtype]);
-                mxx_copy_by_size(mx->elptr + beg * dsize, new_mx->elptr, new_mx->size, new_mx->dtype);
-
-                MX_FREE(new_shape);
-                return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
-            }
-        }
-
-        if (mx->size < pos + new_mx->size) {
-            return Qnil;
-        }
-
-        new_mx->elptr = MX_ALLOC_N(char, new_mx->size * dsize);
-        mxx_copy_by_size(mx->elptr + pos * dsize, new_mx->elptr, new_mx->size, new_mx->dtype);
-
-        return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
     }
+
+    MX *new_mx = mxs_slice(mx, idx, idx_len);
+    return Data_Wrap_Struct(CLASS_OF(self), 0, mxx_free, new_mx);
 
     return self;
 }

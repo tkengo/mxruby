@@ -6,6 +6,14 @@ Matrix or vector operations for ruby.
 
 Unavailable.
 
+## Development
+
+Compile
+
+```sh
+$ bundle exec rake compile:mxruby
+```
+
 ## Usage
 
 ```ruby
@@ -16,9 +24,9 @@ MX.new
 
 ### function name
 
-- `mx_***` is a function that is defined by ruby method.
-- `mxx_***` is used from only C.
-- `mxs_***` is also used from only C, but it is `static` function.
+- `mx_***` is a function that is defined as a ruby method.
+- `mxx_***` is only used from C.
+- `mxs_***` is also only used from C, but it is a `static` function.
 
 ### copy function
 

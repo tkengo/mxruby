@@ -1,6 +1,8 @@
 *.gem
 *.rbc
 *.bundle
+*.o
+*.log
 .pryrc
 .config
 .yardoc
@@ -18,4 +20,5 @@ test/version_tmp
 tmp
 Makefile
 docs/build/*
+vendor
 !.gitkeep

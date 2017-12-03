@@ -37,6 +37,7 @@
 #define MX_DATA_ELPTR(mx) (MX_DATA_PTR(mx)->elptr)
 #define MX_DATA_DIM(mx) (MX_DATA_PTR(mx)->dim)
 #define MX_DATA_SIZE(mx) (MX_DATA_PTR(mx)->size)
+#define MX_DATA_POS(mx, pos) (mx->elptr + (pos) * DTYPE_SIZES[mx->dtype])
 
 #define IS_MX(v) (CLASS_OF(v) == rb_cMx)
 
